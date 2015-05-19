@@ -39,38 +39,6 @@ locals @@
 		int 21h
 		ret
 
-Dir_North equ 0h
-Dir_Easth equ 1h
-Dir_South equ 2h
-Dir_West equ 3h
-Dir_Dx db 0, 1, 0, -1
-Dir_Dy db -1, 0, 1, 0
-
-SnakeColor equ 02h
-
-Direction db 1h
-Speed dw 2h
-HeadX db 5h
-HeadY db 5h
-
-Game_Running equ 0h
-Game_Paused equ 01h
-Game_Over equ 02h
-
-GameStatus db 0h
-
-drawMap proc
-		push ax dx
-		mov ax, 0A000h
-		mov es, ax
-		mov ah, [HeadX]
-		mov al, [HeadY]
-		xor dx, dx
-		mov dl, SnakeColor
-		call drawBox
-		pop dx ax
-		ret
-endp
 		
 newInt9 proc
 		push ax bx cx dx
@@ -91,16 +59,16 @@ newInt9 proc
 		mov [GameStatus], Game_Over
 		jmp @@end
 @@ifUp:
-		mov [Direction], 0h
+		;mov [Direction], 0h
 		jmp @@end
 @@ifRight:
-		mov [Direction], 1h
+		;mov [Direction], 1h
 		jmp @@end
 @@ifDown:
-		mov [Direction], 2h
+		;mov [Direction], 2h
 		jmp @@end
 @@ifLeft:
-		mov [Direction], 3h
+		;mov [Direction], 3h
 		jmp @@end
 @@end:
 		mov al, 20h ;Send EOI (end of interrupt)
@@ -109,7 +77,176 @@ newInt9 proc
 		iret
 endp	
 
+		
+Dir_North equ 0h
+Dir_Easth equ 1h
+Dir_South equ 2h
+Dir_West equ 3h
+Dir_Dx db 0, 1, 0, -1
+Dir_Dy db -1, 0, 1, 0
+
+
+;------------Enum object type------------
+MapObjectType_None equ 0000h
+MapObjectType_Food1 equ 0101h
+MapObjectType_Food2 equ 0102h
+MapObjectType_Food3 equ 0103h
+MapObjectType_Wall1 equ 0201h
+MapObjectType_Wall2 equ 0202h
+MapObjectType_Wall3 equ 0203h
+MapObjectType_SnakePartLeft equ 0A00h
+MapObjectType_SnakePartUp equ 0A01h
+MapObjectType_SnakePartRight equ 0A02h
+MapObjectType_SnakePartDown equ 0A03h
+;------------Enum object type------------
+Expires_Never equ 0
+;-------------Map Description----------------
+MapObject struc
+	_Type dw MapObjectType_None
+	_Expires dw Expires_Never
+MapObject ends
+
+MapWidth equ 32d
+MapHeight equ 20d
+TilePxSize equ 10d
+ScreenPxWidth equ 320d
+ScreenPxHeight equ 200d
+
+MapSize equ MapHeight * MapWidth
+Map MapObject MapSize dup(<>)
+;-------------Map Description----------------
+
+;------Colors-------
+
+SnakeColor equ 02h
+
+;------Colors-------
+
+Speed dw 2h
+HeadCoords dw ?
+
+
+Game_Running equ 0h
+Game_Paused equ 01h
+Game_Over equ 02h
+
+GameStatus db 0h
+
+setMapObj proc ; ah = x, al = y, bx = type, cx = expires
+	push ax bx cx dx
+	mov dh, 0
+	mov dl, ah
+	mov ah, MapWidth
+	mul ah
+	add ax, dx
+	mov dx, type(MapObject)
+	mul dx
+	mov dx, bx
+	mov bx, ax
+	mov Map[bx]._Type, dx
+	mov Map[bx]._Expires, cx
+	pop dx cx bx ax
+	ret
+endp
+
+getMapObj proc ; ah = x, al = y  ===> bx = type, cx = expires
+	push ax dx
+	mov dh, 0
+	mov dl, ah
+	mov ah, MapWidth
+	mul ah
+	add ax, dx
+	mov dx, type(MapObject)
+	mul dx
+	mov dx, bx
+	mov bx, ax
+	mov dx, Map[bx]._Type
+	mov cx, Map[bx]._Expires
+	mov bx, dx
+	pop dx ax
+	ret
+endp
+
+drawMap proc
+	push ax bx cx dx
+	mov ax, 0A000h
+	mov es, ax
+	mov ax, 0
+@@whileAhLessThanWidth:
+	cmp ah, MapWidth
+	jae @@endAh
+	mov al, 0
+@@whileAlLessThanHeight:
+	cmp al, MapHeight
+	jae @@endAl
+	
+	call getMapObj
+	call drawMapObj
+	
+	inc al
+	jmp @@whileAlLessThanHeight
+@@endAl:
+	inc ah
+	jmp @@whileAhLessThanWidth
+@@endAh:
+	pop dx cx bx ax
+	ret
+endp
+
+drawMapObj proc ; ah = x, al = y, bx = type, cx = expires
+	push ax bx cx dx
+	cmp bh, 0Ah
+	jne @@checkIfFood1
+	mov dx, 00001111b
+	call drawBox
+	jmp @@end
+@@checkIfFood1:
+	cmp bx, MapObjectType_Food1
+	jne @@checkIfFood2
+	mov dx, 00110000b
+	call drawBox
+	jmp @@end
+@@checkIfFood2:
+	cmp bx, MapObjectType_Food2
+	jne @@checkIfFood3
+	mov dx, 02Bh
+	call drawBox
+	jmp @@end
+@@checkIfFood3:
+	cmp bx, MapObjectType_Food3
+	jne @@checkIfObstacle1
+	mov dx, 01Bh
+	call drawBox
+	jmp @@end
+@@checkIfObstacle1:
+	cmp bx, MapObjectType_Wall1
+	jne @@checkIfObstacle2
+	mov dx, 11110000b
+	call drawBox
+	jmp @@end
+@@checkIfObstacle2:
+	cmp bx, MapObjectType_Wall2
+	jne @@checkIfObstacle3
+	mov dx, 00Bh
+	call drawBox
+	jmp @@end
+@@checkIfObstacle3:
+	cmp bx, MapObjectType_Wall3
+	jne @@ifNone
+	mov dx, 01010000b
+	call drawBox
+	jmp @@end
+@@ifNone:
+	mov dx, 0
+	call drawBox
+	jmp @@end
+@@end:	
+	pop dx cx bx ax
+	ret
+endp
+
 makeTurn proc
+		
 		ret
 endp	
 		
@@ -159,9 +296,7 @@ restorePageAndMode proc
 	ret
 endp
 		
-TilePxSize equ 10d
-ScreenPxWidth equ 320d
-ScreenPxHeight equ 200d
+
 BoxSize equ TilePxSize
 YMultiplier equ (TilePxSize * ScreenPxWidth)
 
