@@ -5,17 +5,38 @@ org 100h
 locals @@
 
 @entry:
-		jmp @start
-		
+		jmp @start		
 		SavedVideoPage db ?
 		SavedVideoMode db ?
 		oldInt9Seg dw ?
 		oldInt9Off dw ?
-		Direction db 1h
 		
 @start:
 		call initialize
-		call createSnake
+		call drawMap
+@@loop:
+		mov ax, 0h
+		mov es, ax
+		mov cx, [Speed]
+		add cx, [word ptr es:046ch]
+@@wait:
+		cmp [GameStatus], Game_Over
+		je @@endLoop
+		hlt
+		cmp cx, [word ptr es:046ch]
+		jne @@wait
+		call makeTurn
+		call drawMap
+		jmp @@loop
+@@endLoop:
+		nop
+@@end:
+		call restorePageAndMode
+		mov dx, [oldInt9Off]
+		mov ax, [oldInt9Seg]
+		mov ds, ax
+		mov ax, 2509h
+		int 21h
 		ret
 
 Dir_North equ 0h
@@ -25,7 +46,29 @@ Dir_West equ 3h
 Dir_Dx db 0, 1, 0, -1
 Dir_Dy db -1, 0, 1, 0
 
-createSnake proc
+SnakeColor equ 02h
+
+Direction db 1h
+Speed dw 2h
+HeadX db 5h
+HeadY db 5h
+
+Game_Running equ 0h
+Game_Paused equ 01h
+Game_Over equ 02h
+
+GameStatus db 0h
+
+drawMap proc
+		push ax dx
+		mov ax, 0A000h
+		mov es, ax
+		mov ah, [HeadX]
+		mov al, [HeadY]
+		xor dx, dx
+		mov dl, SnakeColor
+		call drawBox
+		pop dx ax
 		ret
 endp
 		
@@ -33,6 +76,8 @@ newInt9 proc
 		push ax bx cx dx
 		cli
 		in al, 60h
+		cmp al, 01h
+		je @@setGameOver
 		cmp al, 48h
 		je @@ifUp
 		cmp al, 4dh
@@ -41,6 +86,9 @@ newInt9 proc
 		je @@ifDown
 		cmp al, 4bh
 		je @@ifLeft
+		jmp @@end
+@@setGameOver:
+		mov [GameStatus], Game_Over
 		jmp @@end
 @@ifUp:
 		mov [Direction], 0h
@@ -59,16 +107,19 @@ newInt9 proc
 		out 20h, al ; to the 8259A PIC.
 		pop dx cx bx ax
 		iret
-endp		
+endp	
+
+makeTurn proc
+		ret
+endp	
 		
 initialize proc
 		push ax
 		call savePageAndMode
 		call setInt9Handler
+		xor ax, ax
 		mov ax, 13h
 		int 10h
-		mov ax, 0A000h
-		mov es, ax
 		pop ax
 		ret
 endp	
@@ -79,9 +130,9 @@ setInt9Handler proc
 		int 21h
 		mov [oldInt9Seg], es
 		mov [oldInt9Off], bx
-		;mov ax, 2509h
-		;mov dx, offset newInt9
-		;int 21h
+		mov ax, 2509h
+		mov dx, offset newInt9
+		int 21h
 		pop es bx ax
 		ret
 endp	
@@ -94,7 +145,19 @@ savePageAndMode proc
 	mov [SavedVideoPage], bh
 	pop bx ax
 	ret
-endp	
+endp
+
+restorePageAndMode proc
+	push ax	
+	mov ah, 0
+	mov al, [SavedVideoMode]
+	int 10h
+	mov ah,05h
+	mov al, [SavedVideoPage]
+	int 10h
+	pop ax
+	ret
+endp
 		
 TilePxSize equ 10d
 ScreenPxWidth equ 320d
