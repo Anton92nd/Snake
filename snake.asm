@@ -13,6 +13,7 @@ locals @@
 		
 @start:
 		call initialize
+		call makeSnake
 		call drawMap
 @@loop:
 		mov ax, 0h
@@ -59,17 +60,41 @@ newInt9 proc
 		mov [GameStatus], Game_Over
 		jmp @@end
 @@ifUp:
-		;mov [Direction], 0h
-		jmp @@end
-@@ifRight:
-		;mov [Direction], 1h
-		jmp @@end
+	mov bx, [HeadType]
+	cmp bx, MapObjectType_SnakePartDown
+	je @@end
+	mov ax, [HeadCoords]
+	call getMapObj
+	mov bx, MapObjectType_SnakePartUp
+	call setMapObj
+	jmp @@end
 @@ifDown:
-		;mov [Direction], 2h
-		jmp @@end
+	mov bx, [HeadType]
+	cmp bx, MapObjectType_SnakePartUp
+	je @@end
+	mov ax, [HeadCoords]
+	call getMapObj
+	mov bx, MapObjectType_SnakePartDown
+	call setMapObj
+	jmp @@end
 @@ifLeft:
-		;mov [Direction], 3h
-		jmp @@end
+	mov bx, [HeadType]
+	cmp bx, MapObjectType_SnakePartRight
+	je @@end
+	mov ax, [HeadCoords]
+	call getMapObj
+	mov bx, MapObjectType_SnakePartLeft
+	call setMapObj
+	jmp @@end
+@@ifRight:
+	mov bx, [HeadType]
+	cmp bx, MapObjectType_SnakePartLeft
+	je @@end
+	mov ax, [HeadCoords]
+	call getMapObj
+	mov bx, MapObjectType_SnakePartRight
+	call setMapObj
+	jmp @@end
 @@end:
 		mov al, 20h ;Send EOI (end of interrupt)
 		out 20h, al ; to the 8259A PIC.
@@ -122,8 +147,9 @@ SnakeColor equ 02h
 
 ;------Colors-------
 
-Speed dw 2h
+Speed dw 1h
 HeadCoords dw ?
+HeadType dw ?
 
 
 Game_Running equ 0h
@@ -245,10 +271,67 @@ drawMapObj proc ; ah = x, al = y, bx = type, cx = expires
 	ret
 endp
 
-makeTurn proc
-		
-		ret
-endp	
+MaxY equ (MapHeight - 1)
+MaxX equ (MapWidth - 1)
+makeSnake proc
+	push ax bx cx dx
+	mov ax, 0
+@@whileAhLessThanWidth:
+	cmp ah, MapWidth
+	jae @@endAh
+	mov al, 0
+@@whileAlLessThanHeight:
+	cmp al, MapHeight
+	jae @@endAl
+	mov cx, Expires_Never
+	cmp ah, 0
+	je @@edge
+	cmp ah, MaxX
+	je @@edge
+	cmp al, 0
+	je @@edge
+	cmp al, MaxY
+	je @@edge
+	jmp @@notEdge
+@@edge:
+	mov bx, MapObjectType_Wall1
+	jmp @@done
+@@notEdge:
+	mov bx, MapObjectType_None
+@@done:
+	call setMapObj
+@@next:
+	inc al
+	jmp @@whileAlLessThanHeight
+@@endAl:
+	inc ah
+	jmp @@whileAhLessThanWidth
+@@endAh:
+	mov [HeadCoords], 0907h
+	mov [HeadType], MapObjectType_SnakePartRight
+	mov cx, 04h
+@@loop:
+	mov ah, cl
+	add ah, 5
+	mov al, 7
+	mov bx, MapObjectType_SnakePartRight
+	call setMapObj
+	dec cx
+	jcxz @@end
+	jmp @@loop
+@@end:
+	mov ax, 0B07h
+	mov bx, MapObjectType_Food1
+	mov cx, Expires_Never
+	call setMapObj
+	mov ax, 1007h
+	mov bx, MapObjectType_Food2
+	mov cx, Expires_Never
+	call setMapObj
+	
+	pop dx cx bx ax
+	ret
+endp
 		
 initialize proc
 		push ax
@@ -343,6 +426,246 @@ drawBox proc ; ah = x, al = y, dx = color, es = 0A000h
 @@endWhile:
 		pop di dx cx bx ax
 		ret
+endp
+
+MaxSnakeLength dw 040d
+makeTurn proc
+	pushf
+	push ax bx cx dx
+	cli
+@@collide:
+	mov ax, [HeadCoords]
+	call getMapObj
+	cmp bh, 0Ah
+	je @@alive
+	mov [GameStatus], Game_Over
+	jmp @@end
+@@alive:
+	cmp cx, [MaxSnakeLength]
+	jb @@notWonYet 
+	mov [GameStatus], Game_Over
+	jmp @@end
+@@notWonYet:
+	call getNextAx
+	call getMapObj
+	mov dx, bx
+	call onCollideWith
+	cmp di, 1
+	je @@collide
+	cmp [GameStatus], Game_Over
+	je @@end
+	mov ax, [HeadCoords]
+	call getMapObj
+	call getNextAx
+	mov [HeadCoords], ax
+	mov HeadType, bx
+	inc cx
+	call setMapObj
+	call decreaseExpirations
+@@end:
+	pop dx cx bx ax
+	popf
+	ret
+endp
+
+getNextAx proc ; ax = current coords, bx = snake part
+	push bx cx dx
+	cmp bx, MapObjectType_SnakePartLeft
+	je @@left
+	cmp bx, MapObjectType_SnakePartRight
+	je @@right
+	cmp bx, MapObjectType_SnakePartUp
+	je @@up
+	cmp bx, MapObjectType_SnakePartDown
+	je @@down
+	jmp @@end
+@@left:
+	dec ah
+	jmp @@end
+@@right:
+	inc ah
+	jmp @@end
+@@up:
+	dec al
+	jmp @@end
+@@down:
+	inc al
+	jmp @@end
+@@end:
+	pop dx cx bx
+	ret
+endp
+
+SelfCollisionAllowed db 0
+onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
+	push ax bx cx dx
+	mov di, 0
+	cmp dh, 0Ah
+	je @@withUrSelf
+	cmp dx, MapObjectType_Food1
+	je @@withFood1
+	cmp dx, MapObjectType_Food2
+	je @@withFood2
+	cmp dx, MapObjectType_Wall1
+	je @@withWall1
+	cmp dx, MapObjectType_Wall2
+	je @@withWall2
+	cmp dx, MapObjectType_Wall3
+	je @@withWall3
+	jmp @@end
+@@withUrSelf:
+	cmp [SelfCollisionAllowed], 1
+	je @@end
+	mov [GameStatus], Game_Over
+	jmp @@end
+@@withFood1:
+	mov dx, 1
+	call changeSnakeDuration
+	mov bx, MapObjectType_Food1
+	mov cx, Expires_Never
+	;call generateMapObjWhereEmpty
+	jmp @@end
+@@withFood2:
+	;mov bx, Note_D2
+	;call playSoundFromBx
+	mov dx, -2
+	call changeSnakeDuration
+	mov bx, MapObjectType_Food2
+	mov cx, Expires_Never
+	;call generateMapObjWhereEmpty
+	jmp @@end
+@@withWall1:
+	mov [GameStatus], Game_Over
+	jmp @@end
+@@withWall2:
+	call reverseSnake
+	mov di, 1
+	jmp @@end
+@@withWall3:
+	jmp @@die
+@@turn:
+	mov ax, [HeadCoords]
+	call setMapObj
+	mov di, 1
+	jmp @@end
+@@die:
+	mov [GameStatus], Game_Over
+	jmp @@end
+@@end:
+	pop dx cx bx ax
+	ret
+endp
+
+reverseSnake proc
+	push ax bx cx dx
+	mov ax, [HeadCoords]
+	call getMapObj
+	mov dx, cx
+	inc dx
+	mov ax, 0
+@@whileAhLessThanWidth:
+	cmp ah, MapWidth
+	jae @@endAh
+	mov al, 0
+@@whileAlLessThanHeight:
+	cmp al, MapHeight
+	jae @@endAl
+	call getMapObj
+	cmp bh, 0Ah
+	jne @@notSnake
+	call getOppositeSnakeObj
+	cmp cx, 1
+	jne @@notNewHead
+	mov [HeadType], bx
+	mov [HeadCoords], ax
+@@notNewHead:
+	neg cx
+	add cx, dx
+	call setMapObj
+	jmp @@next
+@@notSnake:
+@@next:
+	inc al
+	jmp @@whileAlLessThanHeight
+@@endAl:
+	inc ah
+	jmp @@whileAhLessThanWidth
+@@endAh:
+	pop dx cx bx ax
+	ret
+endp
+
+getOppositeSnakeObj proc
+	add bl, 2
+	and bl, 3
+	ret
+endp
+
+decreaseExpirations proc
+	push ax bx cx dx
+	mov ax, 0
+@@whileAhLessThanWidth:
+	cmp ah, MapWidth
+	jae @@endAh
+	mov al, 0
+@@whileAlLessThanHeight:
+	cmp al, MapHeight
+	jae @@endAl
+	
+	call getMapObj
+	cmp cx, Expires_Never
+	je @@next
+	dec cx
+	cmp cx, 0
+	jne @@justSet
+	mov bx, MapObjectType_None
+@@justSet:
+	call setMapObj
+@@next:
+	inc al
+	jmp @@whileAlLessThanHeight
+@@endAl:
+	inc ah
+	jmp @@whileAhLessThanWidth
+@@endAh:
+	pop dx cx bx ax
+	ret
+endp
+
+changeSnakeDuration proc ; dx = duration change
+	push ax bx cx dx
+	neg dx
+	mov ax, 0
+@@whileAhLessThanWidth:
+	cmp ah, MapWidth
+	jae @@endAh
+	mov al, 0
+@@whileAlLessThanHeight:
+	cmp al, MapHeight
+	jae @@endAl
+	call getMapObj
+	cmp bh, 0Ah
+	jne @@notSnake
+	cmp cx, dx
+	jle @@remove
+	sub cx, dx
+	call setMapObj
+	jmp @@next
+@@remove:
+	mov bx, MapObjectType_None
+	mov cx, 0
+	call setMapObj
+@@notSnake:
+@@next:
+	inc al
+	jmp @@whileAlLessThanHeight
+@@endAl:
+	inc ah
+	jmp @@whileAhLessThanWidth
+@@endAh:
+
+	pop dx cx bx ax
+	ret
 endp
 
 playSoundFromBx proc
