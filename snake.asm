@@ -141,11 +141,6 @@ MapSize equ MapHeight * MapWidth
 Map MapObject MapSize dup(<>)
 ;-------------Map Description----------------
 
-;------Colors-------
-
-SnakeColor equ 02h
-
-;------Colors-------
 
 Speed dw 1h
 HeadCoords dw ?
@@ -219,51 +214,55 @@ drawMap proc
 	ret
 endp
 
+;----------Colors----------
+SnakeColor dw 15d
+Food1Color dw 48d
+Food2Color dw 43d
+Wall1Color dw 240d
+Wall2Color dw 11d
+Wall3Color dw 80d
+NoneColor  dw 0d
+;----------Colors----------
+
 drawMapObj proc ; ah = x, al = y, bx = type, cx = expires
 	push ax bx cx dx
 	cmp bh, 0Ah
 	jne @@checkIfFood1
-	mov dx, 00001111b
+	mov dx, [SnakeColor]
 	call drawBox
 	jmp @@end
 @@checkIfFood1:
 	cmp bx, MapObjectType_Food1
 	jne @@checkIfFood2
-	mov dx, 00110000b
+	mov dx, [Food1Color]
 	call drawBox
 	jmp @@end
 @@checkIfFood2:
 	cmp bx, MapObjectType_Food2
-	jne @@checkIfFood3
-	mov dx, 02Bh
+	jne @@checkIfWall1
+	mov dx, [Food2Color]
 	call drawBox
 	jmp @@end
-@@checkIfFood3:
-	cmp bx, MapObjectType_Food3
-	jne @@checkIfObstacle1
-	mov dx, 01Bh
-	call drawBox
-	jmp @@end
-@@checkIfObstacle1:
+@@checkIfWall1:
 	cmp bx, MapObjectType_Wall1
-	jne @@checkIfObstacle2
-	mov dx, 11110000b
+	jne @@checkIfWall2
+	mov dx, [Wall1Color]
 	call drawBox
 	jmp @@end
-@@checkIfObstacle2:
+@@checkIfWall2:
 	cmp bx, MapObjectType_Wall2
-	jne @@checkIfObstacle3
-	mov dx, 00Bh
+	jne @@checkIfWall3
+	mov dx, [Wall2Color]
 	call drawBox
 	jmp @@end
-@@checkIfObstacle3:
+@@checkIfWall3:
 	cmp bx, MapObjectType_Wall3
 	jne @@ifNone
-	mov dx, 01010000b
+	mov dx, [Wall3Color]
 	call drawBox
 	jmp @@end
 @@ifNone:
-	mov dx, 0
+	mov dx, [NoneColor]
 	call drawBox
 	jmp @@end
 @@end:	
@@ -320,11 +319,11 @@ makeSnake proc
 	jcxz @@end
 	jmp @@loop
 @@end:
-	mov ax, 0B07h
+	mov ax, 0B08h
 	mov bx, MapObjectType_Food1
 	mov cx, Expires_Never
 	call setMapObj
-	mov ax, 1007h
+	mov ax, 1008h
 	mov bx, MapObjectType_Food2
 	mov cx, Expires_Never
 	call setMapObj
