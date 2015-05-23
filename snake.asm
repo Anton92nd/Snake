@@ -522,7 +522,7 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 	call changeSnakeDuration
 	mov bx, MapObjectType_Food1
 	mov cx, Expires_Never
-	;call generateMapObjWhereEmpty
+	call generateMapObjWhereEmpty
 	jmp @@end
 @@withFood2:
 	;mov bx, Note_D2
@@ -531,7 +531,7 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 	call changeSnakeDuration
 	mov bx, MapObjectType_Food2
 	mov cx, Expires_Never
-	;call generateMapObjWhereEmpty
+	call generateMapObjWhereEmpty
 	jmp @@end
 @@withWall1:
 	mov [GameStatus], Game_Over
@@ -597,6 +597,58 @@ endp
 getOppositeSnakeObj proc
 	add bl, 2
 	and bl, 3
+	ret
+endp
+
+generateMapObjWhereEmpty proc
+	push ax bx cx dx
+	push bx cx
+@@generateRandomEmptyCoords:
+	call generateRandomCoords
+	call getMapObj
+	cmp bx, MapObjectType_None
+	jne @@generateRandomEmptyCoords
+	pop cx bx
+	call setMapObj
+	pop dx cx bx ax
+	ret
+endp
+
+generateRandomCoords proc ; ; ax => coords
+	push bx cx dx
+	call readTimerCount
+	mov cx, ax
+	mov ah, 0
+	mov al, cl
+	mov dl, MapWidth
+	xor al, ch
+	add al, 37h
+	mov ah, 0
+	div dl
+	mov bh, ah ; remainder
+	mov dl, MapHeight
+	mov ah, 0
+	mov al, ch
+	xor al, cl
+	add al, 37h
+	mov ah, 0
+	div dl
+	mov bl, ah
+	mov ax, bx
+	pop dx cx bx
+	ret
+endp
+
+readTimerCount proc
+	;pushf
+	cli
+	mov al, 00000000b    ; al = channel in bits 6 and 7, remaining bits clear
+	out 43h, al        ; Send the latch command
+	in al, 40h         ; al = low byte of count
+	mov ah, al           ; ah = low byte of count
+	in al, 40h         ; al = high byte of count
+	rol ax, 8            ; al = low byte, ah = high byte (ax = current count)
+	;popf
 	ret
 endp
 
