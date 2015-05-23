@@ -55,6 +55,14 @@ newInt9 proc
 		je @@ifDown
 		cmp al, 4bh
 		je @@ifLeft
+		cmp al, 0dh
+		je @@ifPlus
+		cmp al, 0ch
+		je @@ifMinus
+		cmp al, 4eh
+		je @@ifPlus
+		cmp al, 4ah
+		je @@ifMinus
 		jmp @@end
 @@setGameOver:
 		mov [GameStatus], Game_Over
@@ -94,6 +102,14 @@ newInt9 proc
 		call getMapObj
 		mov bx, MapObjectType_SnakePartRight
 		call setMapObj
+		jmp @@end
+@@ifMinus:
+		inc [Speed]
+		jmp @@end
+@@ifPlus:
+		cmp [Speed], 1
+		je @@end
+		dec [Speed]
 		jmp @@end
 @@end:
 		mov al, 20h ;Send EOI (end of interrupt)
