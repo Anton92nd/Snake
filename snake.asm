@@ -293,7 +293,17 @@ makeSnake proc
 	je @@edge
 	jmp @@notEdge
 @@edge:
+	cmp ah, 0h
+	je @@isWall2
+	cmp ah, MaxX
+	je @@isWall3
 	mov bx, MapObjectType_Wall1
+	jmp @@done
+@@isWall2:
+	mov bx, MapObjectType_Wall2
+	jmp @@done
+@@isWall3:
+	mov bx, MapObjectType_Wall3
 	jmp @@done
 @@notEdge:
 	mov bx, MapObjectType_None
@@ -480,16 +490,21 @@ getNextAx proc ; ax = current coords, bx = snake part
 	jmp @@end
 @@left:
 	dec ah
-	jmp @@end
+	jmp @@continue
 @@right:
 	inc ah
-	jmp @@end
+	jmp @@continue
 @@up:
 	dec al
-	jmp @@end
+	jmp @@continue
 @@down:
 	inc al
-	jmp @@end
+	jmp @@continue
+@@continue:
+	call getMapObj
+	cmp bx, MapObjectType_Wall3
+	jne @@end
+	mov ah, 01h
 @@end:
 	pop dx cx bx
 	ret
@@ -541,7 +556,7 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 	mov di, 1
 	jmp @@end
 @@withWall3:
-	jmp @@die
+	jmp @@end
 @@turn:
 	mov ax, [HeadCoords]
 	call setMapObj
@@ -553,6 +568,15 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 @@end:
 	pop dx cx bx ax
 	ret
+endp
+
+teleportHead proc
+		push ax
+		mov ax, [HeadCoords]
+		mov ah, 03h
+		mov [HeadCoords], ax
+		pop ax
+		ret
 endp
 
 reverseSnake proc
