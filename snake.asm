@@ -218,6 +218,7 @@ endp
 	SnakeColor dw 15d
 	Food1Color dw 48d
 	Food2Color dw 43d
+	Food3Color dw 41d
 	Wall1Color dw 240d
 	Wall2Color dw 11d
 	Wall3Color dw 80d
@@ -239,8 +240,14 @@ drawMapObj proc ; ah = x, al = y, bx = type, cx = expires
 		jmp @@end
 @@checkIfFood2:
 		cmp bx, MapObjectType_Food2
-		jne @@checkIfWall1
+		jne @@checkIfFood3
 		mov dx, [Food2Color]
+		call drawBox
+		jmp @@end
+@@checkIfFood3:
+		cmp bx, MapObjectType_Food3
+		jne @@checkIfWall1
+		mov dx, [Food3Color]
 		call drawBox
 		jmp @@end
 @@checkIfWall1:
@@ -330,12 +337,16 @@ makeSnake proc
 		jcxz @@end
 		jmp @@loop
 @@end:
-		mov ax, 0B08h
+		mov ax, 0B0Ah
 		mov bx, MapObjectType_Food1
 		mov cx, Expires_Never
 		call setMapObj
-		mov ax, 1008h
+		mov ax, 100Ah
 		mov bx, MapObjectType_Food2
+		mov cx, Expires_Never
+		call setMapObj
+		mov ax, 150Bh
+		mov bx, MapObjectType_Food3
 		mov cx, Expires_Never
 		call setMapObj
 		
@@ -523,6 +534,8 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 		je @@withFood1
 		cmp dx, MapObjectType_Food2
 		je @@withFood2
+		cmp dx, MapObjectType_Food3
+		je @@withFood3
 		cmp dx, MapObjectType_Wall1
 		je @@withWall1
 		cmp dx, MapObjectType_Wall2
@@ -550,6 +563,9 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 		mov bx, MapObjectType_Food2
 		mov cx, Expires_Never
 		call generateMapObjWhereEmpty
+		jmp @@end
+@@withFood3:
+		mov [GameStatus], Game_Over
 		jmp @@end
 @@withWall1:
 		mov [GameStatus], Game_Over
