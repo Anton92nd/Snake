@@ -60,41 +60,41 @@ newInt9 proc
 		mov [GameStatus], Game_Over
 		jmp @@end
 @@ifUp:
-	mov bx, [HeadType]
-	cmp bx, MapObjectType_SnakePartDown
-	je @@end
-	mov ax, [HeadCoords]
-	call getMapObj
-	mov bx, MapObjectType_SnakePartUp
-	call setMapObj
-	jmp @@end
+		mov bx, [HeadType]
+		cmp bx, MapObjectType_SnakePartDown
+		je @@end
+		mov ax, [HeadCoords]
+		call getMapObj
+		mov bx, MapObjectType_SnakePartUp
+		call setMapObj
+		jmp @@end
 @@ifDown:
-	mov bx, [HeadType]
-	cmp bx, MapObjectType_SnakePartUp
-	je @@end
-	mov ax, [HeadCoords]
-	call getMapObj
-	mov bx, MapObjectType_SnakePartDown
-	call setMapObj
-	jmp @@end
+		mov bx, [HeadType]
+		cmp bx, MapObjectType_SnakePartUp
+		je @@end
+		mov ax, [HeadCoords]
+		call getMapObj
+		mov bx, MapObjectType_SnakePartDown
+		call setMapObj
+		jmp @@end
 @@ifLeft:
-	mov bx, [HeadType]
-	cmp bx, MapObjectType_SnakePartRight
-	je @@end
-	mov ax, [HeadCoords]
-	call getMapObj
-	mov bx, MapObjectType_SnakePartLeft
-	call setMapObj
-	jmp @@end
+		mov bx, [HeadType]
+		cmp bx, MapObjectType_SnakePartRight
+		je @@end
+		mov ax, [HeadCoords]
+		call getMapObj
+		mov bx, MapObjectType_SnakePartLeft
+		call setMapObj
+		jmp @@end
 @@ifRight:
-	mov bx, [HeadType]
-	cmp bx, MapObjectType_SnakePartLeft
-	je @@end
-	mov ax, [HeadCoords]
-	call getMapObj
-	mov bx, MapObjectType_SnakePartRight
-	call setMapObj
-	jmp @@end
+		mov bx, [HeadType]
+		cmp bx, MapObjectType_SnakePartLeft
+		je @@end
+		mov ax, [HeadCoords]
+		call getMapObj
+		mov bx, MapObjectType_SnakePartRight
+		call setMapObj
+		jmp @@end
 @@end:
 		mov al, 20h ;Send EOI (end of interrupt)
 		out 20h, al ; to the 8259A PIC.
@@ -154,192 +154,193 @@ Game_Over equ 02h
 GameStatus db 0h
 
 setMapObj proc ; ah = x, al = y, bx = type, cx = expires
-	push ax bx cx dx
-	mov dh, 0
-	mov dl, ah
-	mov ah, MapWidth
-	mul ah
-	add ax, dx
-	mov dx, type(MapObject)
-	mul dx
-	mov dx, bx
-	mov bx, ax
-	mov Map[bx]._Type, dx
-	mov Map[bx]._Expires, cx
-	pop dx cx bx ax
-	ret
+		push ax bx cx dx
+		mov dh, 0
+		mov dl, ah
+		mov ah, MapWidth
+		mul ah
+		add ax, dx
+		mov dx, type(MapObject)
+		mul dx
+		mov dx, bx
+		mov bx, ax
+		mov Map[bx]._Type, dx
+		mov Map[bx]._Expires, cx
+		pop dx cx bx ax
+		ret
 endp
 
 getMapObj proc ; ah = x, al = y  ===> bx = type, cx = expires
-	push ax dx
-	mov dh, 0
-	mov dl, ah
-	mov ah, MapWidth
-	mul ah
-	add ax, dx
-	mov dx, type(MapObject)
-	mul dx
-	mov dx, bx
-	mov bx, ax
-	mov dx, Map[bx]._Type
-	mov cx, Map[bx]._Expires
-	mov bx, dx
-	pop dx ax
-	ret
+		push ax dx
+		mov dh, 0
+		mov dl, ah
+		mov ah, MapWidth
+		mul ah
+		add ax, dx
+		mov dx, type(MapObject)
+		mul dx
+		mov dx, bx
+		mov bx, ax
+		mov dx, Map[bx]._Type
+		mov cx, Map[bx]._Expires
+		mov bx, dx
+		pop dx ax
+		ret
 endp
 
 drawMap proc
-	push ax bx cx dx
-	mov ax, 0A000h
-	mov es, ax
-	mov ax, 0
+		push ax bx cx dx
+		mov ax, 0A000h
+		mov es, ax
+		mov ax, 0
 @@whileAhLessThanWidth:
-	cmp ah, MapWidth
-	jae @@endAh
-	mov al, 0
+		cmp ah, MapWidth
+		jae @@endAh
+		mov al, 0
 @@whileAlLessThanHeight:
-	cmp al, MapHeight
-	jae @@endAl
+		cmp al, MapHeight
+		jae @@endAl
 	
-	call getMapObj
-	call drawMapObj
+		call getMapObj
+		call drawMapObj
 	
-	inc al
-	jmp @@whileAlLessThanHeight
+		inc al
+		jmp @@whileAlLessThanHeight
 @@endAl:
-	inc ah
-	jmp @@whileAhLessThanWidth
+		inc ah
+		jmp @@whileAhLessThanWidth
 @@endAh:
-	pop dx cx bx ax
-	ret
+		pop dx cx bx ax
+		ret
 endp
 
 ;----------Colors----------
-SnakeColor dw 15d
-Food1Color dw 48d
-Food2Color dw 43d
-Wall1Color dw 240d
-Wall2Color dw 11d
-Wall3Color dw 80d
-NoneColor  dw 0d
+	SnakeColor dw 15d
+	Food1Color dw 48d
+	Food2Color dw 43d
+	Wall1Color dw 240d
+	Wall2Color dw 11d
+	Wall3Color dw 80d
+	NoneColor  dw 0d
 ;----------Colors----------
 
 drawMapObj proc ; ah = x, al = y, bx = type, cx = expires
-	push ax bx cx dx
-	cmp bh, 0Ah
-	jne @@checkIfFood1
-	mov dx, [SnakeColor]
-	call drawBox
-	jmp @@end
+		push ax bx cx dx
+		cmp bh, 0Ah
+		jne @@checkIfFood1
+		mov dx, [SnakeColor]
+		call drawBox
+		jmp @@end
 @@checkIfFood1:
-	cmp bx, MapObjectType_Food1
-	jne @@checkIfFood2
-	mov dx, [Food1Color]
-	call drawBox
-	jmp @@end
+		cmp bx, MapObjectType_Food1
+		jne @@checkIfFood2
+		mov dx, [Food1Color]
+		call drawBox
+		jmp @@end
 @@checkIfFood2:
-	cmp bx, MapObjectType_Food2
-	jne @@checkIfWall1
-	mov dx, [Food2Color]
-	call drawBox
-	jmp @@end
+		cmp bx, MapObjectType_Food2
+		jne @@checkIfWall1
+		mov dx, [Food2Color]
+		call drawBox
+		jmp @@end
 @@checkIfWall1:
-	cmp bx, MapObjectType_Wall1
-	jne @@checkIfWall2
-	mov dx, [Wall1Color]
-	call drawBox
-	jmp @@end
+		cmp bx, MapObjectType_Wall1
+		jne @@checkIfWall2
+		mov dx, [Wall1Color]
+		call drawBox
+		jmp @@end
 @@checkIfWall2:
-	cmp bx, MapObjectType_Wall2
-	jne @@checkIfWall3
-	mov dx, [Wall2Color]
-	call drawBox
-	jmp @@end
+		cmp bx, MapObjectType_Wall2
+		jne @@checkIfWall3
+		mov dx, [Wall2Color]
+		call drawBox
+		jmp @@end
 @@checkIfWall3:
-	cmp bx, MapObjectType_Wall3
-	jne @@ifNone
-	mov dx, [Wall3Color]
-	call drawBox
-	jmp @@end
+		cmp bx, MapObjectType_Wall3
+		jne @@ifNone
+		mov dx, [Wall3Color]
+		call drawBox
+		jmp @@end
 @@ifNone:
-	mov dx, [NoneColor]
-	call drawBox
-	jmp @@end
+		mov dx, [NoneColor]
+		call drawBox
+		jmp @@end
 @@end:	
-	pop dx cx bx ax
-	ret
+		pop dx cx bx ax
+		ret
 endp
 
 MaxY equ (MapHeight - 1)
 MaxX equ (MapWidth - 1)
+
 makeSnake proc
-	push ax bx cx dx
-	mov ax, 0
+		push ax bx cx dx
+		mov ax, 0
 @@whileAhLessThanWidth:
-	cmp ah, MapWidth
-	jae @@endAh
-	mov al, 0
+		cmp ah, MapWidth
+		jae @@endAh
+		mov al, 0
 @@whileAlLessThanHeight:
-	cmp al, MapHeight
-	jae @@endAl
-	mov cx, Expires_Never
-	cmp ah, 0
-	je @@edge
-	cmp ah, MaxX
-	je @@edge
-	cmp al, 0
-	je @@edge
-	cmp al, MaxY
-	je @@edge
-	jmp @@notEdge
+		cmp al, MapHeight
+		jae @@endAl
+		mov cx, Expires_Never
+		cmp ah, 0
+		je @@edge
+		cmp ah, MaxX
+		je @@edge
+		cmp al, 0
+		je @@edge
+		cmp al, MaxY
+		je @@edge
+		jmp @@notEdge
 @@edge:
-	cmp ah, 0h
-	je @@isWall2
-	cmp ah, MaxX
-	je @@isWall3
-	mov bx, MapObjectType_Wall1
-	jmp @@done
+		cmp ah, 0h
+		je @@isWall2
+		cmp ah, MaxX
+		je @@isWall3
+		mov bx, MapObjectType_Wall1
+		jmp @@done
 @@isWall2:
-	mov bx, MapObjectType_Wall2
-	jmp @@done
+		mov bx, MapObjectType_Wall2
+		jmp @@done
 @@isWall3:
-	mov bx, MapObjectType_Wall3
-	jmp @@done
+		mov bx, MapObjectType_Wall3
+		jmp @@done
 @@notEdge:
-	mov bx, MapObjectType_None
+		mov bx, MapObjectType_None
 @@done:
-	call setMapObj
+		call setMapObj
 @@next:
-	inc al
-	jmp @@whileAlLessThanHeight
+		inc al
+		jmp @@whileAlLessThanHeight
 @@endAl:
-	inc ah
-	jmp @@whileAhLessThanWidth
+		inc ah
+		jmp @@whileAhLessThanWidth
 @@endAh:
-	mov [HeadCoords], 0907h
-	mov [HeadType], MapObjectType_SnakePartRight
-	mov cx, 04h
+		mov [HeadCoords], 0907h
+		mov [HeadType], MapObjectType_SnakePartRight
+		mov cx, 04h
 @@loop:
-	mov ah, cl
-	add ah, 5
-	mov al, 7
-	mov bx, MapObjectType_SnakePartRight
-	call setMapObj
-	dec cx
-	jcxz @@end
-	jmp @@loop
+		mov ah, cl
+		add ah, 5
+		mov al, 7
+		mov bx, MapObjectType_SnakePartRight
+		call setMapObj
+		dec cx
+		jcxz @@end
+		jmp @@loop
 @@end:
-	mov ax, 0B08h
-	mov bx, MapObjectType_Food1
-	mov cx, Expires_Never
-	call setMapObj
-	mov ax, 1008h
-	mov bx, MapObjectType_Food2
-	mov cx, Expires_Never
-	call setMapObj
-	
-	pop dx cx bx ax
-	ret
+		mov ax, 0B08h
+		mov bx, MapObjectType_Food1
+		mov cx, Expires_Never
+		call setMapObj
+		mov ax, 1008h
+		mov bx, MapObjectType_Food2
+		mov cx, Expires_Never
+		call setMapObj
+		
+		pop dx cx bx ax
+		ret
 endp
 		
 initialize proc
@@ -367,25 +368,25 @@ setInt9Handler proc
 endp	
 
 savePageAndMode proc
-	push ax bx	
-	mov ah,0fh
-	int 10h
-	mov [SavedVideoMode], al
-	mov [SavedVideoPage], bh
-	pop bx ax
-	ret
+		push ax bx	
+		mov ah,0fh
+		int 10h
+		mov [SavedVideoMode], al
+		mov [SavedVideoPage], bh
+		pop bx ax
+		ret
 endp
 
 restorePageAndMode proc
-	push ax	
-	mov ah, 0
-	mov al, [SavedVideoMode]
-	int 10h
-	mov ah,05h
-	mov al, [SavedVideoPage]
-	int 10h
-	pop ax
-	ret
+		push ax	
+		mov ah, 0
+		mov al, [SavedVideoMode]
+		int 10h
+		mov ah,05h
+		mov al, [SavedVideoPage]
+		int 10h
+		pop ax
+		ret
 endp
 		
 
@@ -438,136 +439,138 @@ drawBox proc ; ah = x, al = y, dx = color, es = 0A000h
 endp
 
 MaxSnakeLength dw 040d
+
 makeTurn proc
-	pushf
-	push ax bx cx dx
-	cli
+		pushf
+		push ax bx cx dx
+		cli
 @@collide:
-	mov ax, [HeadCoords]
-	call getMapObj
-	cmp bh, 0Ah
-	je @@alive
-	mov [GameStatus], Game_Over
-	jmp @@end
+		mov ax, [HeadCoords]
+		call getMapObj
+		cmp bh, 0Ah
+		je @@alive
+		mov [GameStatus], Game_Over
+		jmp @@end
 @@alive:
-	cmp cx, [MaxSnakeLength]
-	jb @@notWonYet 
-	mov [GameStatus], Game_Over
-	jmp @@end
+		cmp cx, [MaxSnakeLength]
+		jb @@notWonYet 
+		mov [GameStatus], Game_Over
+		jmp @@end
 @@notWonYet:
-	call getNextAx
-	call getMapObj
-	mov dx, bx
-	call onCollideWith
-	cmp di, 1
-	je @@collide
-	cmp [GameStatus], Game_Over
-	je @@end
-	mov ax, [HeadCoords]
-	call getMapObj
-	call getNextAx
-	mov [HeadCoords], ax
-	mov HeadType, bx
-	inc cx
-	call setMapObj
-	call decreaseExpirations
+		call getNextAx
+		call getMapObj
+		mov dx, bx
+		call onCollideWith
+		cmp di, 1
+		je @@collide
+		cmp [GameStatus], Game_Over
+		je @@end
+		mov ax, [HeadCoords]
+		call getMapObj
+		call getNextAx
+		mov [HeadCoords], ax
+		mov HeadType, bx
+		inc cx
+		call setMapObj
+		call decreaseExpirations
 @@end:
-	pop dx cx bx ax
-	popf
-	ret
+		pop dx cx bx ax
+		popf
+		ret
 endp
 
 getNextAx proc ; ax = current coords, bx = snake part
-	push bx cx dx
-	cmp bx, MapObjectType_SnakePartLeft
-	je @@left
-	cmp bx, MapObjectType_SnakePartRight
-	je @@right
-	cmp bx, MapObjectType_SnakePartUp
-	je @@up
-	cmp bx, MapObjectType_SnakePartDown
-	je @@down
-	jmp @@end
+		push bx cx dx
+		cmp bx, MapObjectType_SnakePartLeft
+		je @@left
+		cmp bx, MapObjectType_SnakePartRight
+		je @@right
+		cmp bx, MapObjectType_SnakePartUp
+		je @@up
+		cmp bx, MapObjectType_SnakePartDown
+		je @@down
+		jmp @@end
 @@left:
-	dec ah
-	jmp @@continue
+		dec ah
+		jmp @@continue
 @@right:
-	inc ah
-	jmp @@continue
+		inc ah
+		jmp @@continue
 @@up:
-	dec al
-	jmp @@continue
+		dec al
+		jmp @@continue
 @@down:
-	inc al
-	jmp @@continue
+		inc al
+		jmp @@continue
 @@continue:
-	call getMapObj
-	cmp bx, MapObjectType_Wall3
-	jne @@end
-	mov ah, 01h
+		call getMapObj
+		cmp bx, MapObjectType_Wall3
+		jne @@end
+		mov ah, 01h
 @@end:
-	pop dx cx bx
-	ret
+		pop dx cx bx
+		ret
 endp
 
 SelfCollisionAllowed db 0
+
 onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
-	push ax bx cx dx
-	mov di, 0
-	cmp dh, 0Ah
-	je @@withUrSelf
-	cmp dx, MapObjectType_Food1
-	je @@withFood1
-	cmp dx, MapObjectType_Food2
-	je @@withFood2
-	cmp dx, MapObjectType_Wall1
-	je @@withWall1
-	cmp dx, MapObjectType_Wall2
-	je @@withWall2
-	cmp dx, MapObjectType_Wall3
-	je @@withWall3
-	jmp @@end
+		push ax bx cx dx
+		mov di, 0
+		cmp dh, 0Ah
+		je @@withUrSelf
+		cmp dx, MapObjectType_Food1
+		je @@withFood1
+		cmp dx, MapObjectType_Food2
+		je @@withFood2
+		cmp dx, MapObjectType_Wall1
+		je @@withWall1
+		cmp dx, MapObjectType_Wall2
+		je @@withWall2
+		cmp dx, MapObjectType_Wall3
+		je @@withWall3
+		jmp @@end
 @@withUrSelf:
-	cmp [SelfCollisionAllowed], 1
-	je @@end
-	mov [GameStatus], Game_Over
-	jmp @@end
+		cmp [SelfCollisionAllowed], 1
+		je @@end
+		mov [GameStatus], Game_Over
+		jmp @@end
 @@withFood1:
-	mov dx, 1
-	call changeSnakeDuration
-	mov bx, MapObjectType_Food1
-	mov cx, Expires_Never
-	call generateMapObjWhereEmpty
-	jmp @@end
+		mov dx, 1
+		call changeSnakeDuration
+		mov bx, MapObjectType_Food1
+		mov cx, Expires_Never
+		call generateMapObjWhereEmpty
+		jmp @@end
 @@withFood2:
-	;mov bx, Note_D2
-	;call playSoundFromBx
-	mov dx, -2
-	call changeSnakeDuration
-	mov bx, MapObjectType_Food2
-	mov cx, Expires_Never
-	call generateMapObjWhereEmpty
-	jmp @@end
+		;mov bx, Note_D2
+		;call playSoundFromBx
+		mov dx, -2
+		call changeSnakeDuration
+		mov bx, MapObjectType_Food2
+		mov cx, Expires_Never
+		call generateMapObjWhereEmpty
+		jmp @@end
 @@withWall1:
-	mov [GameStatus], Game_Over
-	jmp @@end
+		mov [GameStatus], Game_Over
+		jmp @@end
 @@withWall2:
-	call reverseSnake
-	mov di, 1
-	jmp @@end
+		call reverseSnake
+		mov di, 1
+		jmp @@end
 @@withWall3:
-	jmp @@end
+		jmp @@end
 @@turn:
-	mov ax, [HeadCoords]
-	call setMapObj
-	mov di, 1
-	jmp @@end
+		mov ax, [HeadCoords]
+		call setMapObj
+		mov di, 1
+		jmp @@end
 @@die:
-	mov [GameStatus], Game_Over
-	jmp @@end
+		mov [GameStatus], Game_Over
+		jmp @@end
 @@end:
-	pop dx cx bx ax
-	ret
+		pop dx cx bx ax
+		ret
 endp
 
 teleportHead proc
@@ -580,189 +583,189 @@ teleportHead proc
 endp
 
 reverseSnake proc
-	push ax bx cx dx
-	mov ax, [HeadCoords]
-	call getMapObj
-	mov dx, cx
-	inc dx
-	mov ax, 0
+		push ax bx cx dx
+		mov ax, [HeadCoords]
+		call getMapObj
+		mov dx, cx
+		inc dx
+		mov ax, 0
 @@whileAhLessThanWidth:
-	cmp ah, MapWidth
-	jae @@endAh
-	mov al, 0
+		cmp ah, MapWidth
+		jae @@endAh
+		mov al, 0
 @@whileAlLessThanHeight:
-	cmp al, MapHeight
-	jae @@endAl
-	call getMapObj
-	cmp bh, 0Ah
-	jne @@notSnake
-	call getOppositeSnakeObj
-	cmp cx, 1
-	jne @@notNewHead
-	mov [HeadType], bx
-	mov [HeadCoords], ax
+		cmp al, MapHeight
+		jae @@endAl
+		call getMapObj
+		cmp bh, 0Ah
+		jne @@notSnake
+		call getOppositeSnakeObj
+		cmp cx, 1
+		jne @@notNewHead
+		mov [HeadType], bx
+		mov [HeadCoords], ax
 @@notNewHead:
-	neg cx
-	add cx, dx
-	call setMapObj
-	jmp @@next
+		neg cx
+		add cx, dx
+		call setMapObj
+		jmp @@next
 @@notSnake:
 @@next:
-	inc al
-	jmp @@whileAlLessThanHeight
+		inc al
+		jmp @@whileAlLessThanHeight
 @@endAl:
-	inc ah
-	jmp @@whileAhLessThanWidth
+		inc ah
+		jmp @@whileAhLessThanWidth
 @@endAh:
-	pop dx cx bx ax
-	ret
+		pop dx cx bx ax
+		ret
 endp
 
 getOppositeSnakeObj proc
-	add bl, 2
-	and bl, 3
-	ret
+		add bl, 2
+		and bl, 3
+		ret
 endp
 
 generateMapObjWhereEmpty proc
-	push ax bx cx dx
-	push bx cx
+		push ax bx cx dx
+		push bx cx
 @@generateRandomEmptyCoords:
-	call generateRandomCoords
-	call getMapObj
-	cmp bx, MapObjectType_None
-	jne @@generateRandomEmptyCoords
-	pop cx bx
-	call setMapObj
-	pop dx cx bx ax
-	ret
+		call generateRandomCoords
+		call getMapObj
+		cmp bx, MapObjectType_None
+		jne @@generateRandomEmptyCoords
+		pop cx bx
+		call setMapObj
+		pop dx cx bx ax
+		ret
 endp
 
 generateRandomCoords proc ; ; ax => coords
-	push bx cx dx
-	call readTimerCount
-	mov cx, ax
-	mov ah, 0
-	mov al, cl
-	mov dl, MapWidth
-	xor al, ch
-	add al, 37h
-	mov ah, 0
-	div dl
-	mov bh, ah ; remainder
-	mov dl, MapHeight
-	mov ah, 0
-	mov al, ch
-	xor al, cl
-	add al, 37h
-	mov ah, 0
-	div dl
-	mov bl, ah
-	mov ax, bx
-	pop dx cx bx
-	ret
+		push bx cx dx
+		call readTimerCount
+		mov cx, ax
+		mov ah, 0
+		mov al, cl
+		mov dl, MapWidth
+		xor al, ch
+		add al, 37h
+		mov ah, 0
+		div dl
+		mov bh, ah ; remainder
+		mov dl, MapHeight
+		mov ah, 0
+		mov al, ch
+		xor al, cl
+		add al, 37h
+		mov ah, 0
+		div dl
+		mov bl, ah
+		mov ax, bx
+		pop dx cx bx
+		ret
 endp
 
 readTimerCount proc
-	;pushf
-	cli
-	mov al, 00000000b    ; al = channel in bits 6 and 7, remaining bits clear
-	out 43h, al        ; Send the latch command
-	in al, 40h         ; al = low byte of count
-	mov ah, al           ; ah = low byte of count
-	in al, 40h         ; al = high byte of count
-	rol ax, 8            ; al = low byte, ah = high byte (ax = current count)
-	;popf
-	ret
+		;pushf
+		cli
+		mov al, 00000000b    ; al = channel in bits 6 and 7, remaining bits clear
+		out 43h, al        ; Send the latch command
+		in al, 40h         ; al = low byte of count
+		mov ah, al           ; ah = low byte of count
+		in al, 40h         ; al = high byte of count
+		rol ax, 8            ; al = low byte, ah = high byte (ax = current count)
+		;popf
+		ret
 endp
 
 decreaseExpirations proc
-	push ax bx cx dx
-	mov ax, 0
+		push ax bx cx dx
+		mov ax, 0
 @@whileAhLessThanWidth:
-	cmp ah, MapWidth
-	jae @@endAh
-	mov al, 0
+		cmp ah, MapWidth
+		jae @@endAh
+		mov al, 0
 @@whileAlLessThanHeight:
-	cmp al, MapHeight
-	jae @@endAl
+		cmp al, MapHeight
+		jae @@endAl
 	
-	call getMapObj
-	cmp cx, Expires_Never
-	je @@next
-	dec cx
-	cmp cx, 0
-	jne @@justSet
-	mov bx, MapObjectType_None
+		call getMapObj
+		cmp cx, Expires_Never
+		je @@next
+		dec cx
+		cmp cx, 0
+		jne @@justSet
+		mov bx, MapObjectType_None
 @@justSet:
-	call setMapObj
+		call setMapObj
 @@next:
-	inc al
-	jmp @@whileAlLessThanHeight
+		inc al
+		jmp @@whileAlLessThanHeight
 @@endAl:
-	inc ah
-	jmp @@whileAhLessThanWidth
+		inc ah
+		jmp @@whileAhLessThanWidth
 @@endAh:
-	pop dx cx bx ax
-	ret
+		pop dx cx bx ax
+		ret
 endp
 
 changeSnakeDuration proc ; dx = duration change
-	push ax bx cx dx
-	neg dx
-	mov ax, 0
+		push ax bx cx dx
+		neg dx
+		mov ax, 0
 @@whileAhLessThanWidth:
-	cmp ah, MapWidth
-	jae @@endAh
-	mov al, 0
+		cmp ah, MapWidth
+		jae @@endAh
+		mov al, 0
 @@whileAlLessThanHeight:
-	cmp al, MapHeight
-	jae @@endAl
-	call getMapObj
-	cmp bh, 0Ah
-	jne @@notSnake
-	cmp cx, dx
-	jle @@remove
-	sub cx, dx
-	call setMapObj
-	jmp @@next
+		cmp al, MapHeight
+		jae @@endAl
+		call getMapObj
+		cmp bh, 0Ah
+		jne @@notSnake
+		cmp cx, dx
+		jle @@remove
+		sub cx, dx
+		call setMapObj
+		jmp @@next
 @@remove:
-	mov bx, MapObjectType_None
-	mov cx, 0
-	call setMapObj
+		mov bx, MapObjectType_None
+		mov cx, 0
+		call setMapObj
 @@notSnake:
 @@next:
-	inc al
-	jmp @@whileAlLessThanHeight
+		inc al
+		jmp @@whileAlLessThanHeight
 @@endAl:
-	inc ah
-	jmp @@whileAhLessThanWidth
+		inc ah
+		jmp @@whileAhLessThanWidth
 @@endAh:
 
-	pop dx cx bx ax
-	ret
+		pop dx cx bx ax
+		ret
 endp
 
 playSoundFromBx proc
-	push ax bx cx dx
+		push ax bx cx dx
 
-	mov     al, 10110110b    ; the magic number (use this binary number only!)
-	out     43h, al          ; send it to the initializing port 43h timer 2.
+		mov     al, 10110110b    ; the magic number (use this binary number only!)
+		out     43h, al          ; send it to the initializing port 43h timer 2.
 
-	mov     ax, bx           ; move our frequency value into ax.
+		mov     ax, bx           ; move our frequency value into ax.
 
-	out     42h, al          ; send lsb to port 42h.
-	mov     al, ah           ; move msb into al
-	out     42h, al          ; send msb to port 42h.
+		out     42h, al          ; send lsb to port 42h.
+		mov     al, ah           ; move msb into al
+		out     42h, al          ; send msb to port 42h.
 
-	in      al, 61h          ; get current value of port 61h.
-	or      al, 00000011b    ; or al to this value, forcing first two bits high.
-	out     61h, al          ; copy it to port 61h of the ppi chip
-							 ; to turn on the speaker.
+		in      al, 61h          ; get current value of port 61h.
+		or      al, 00000011b    ; or al to this value, forcing first two bits high.
+		out     61h, al          ; copy it to port 61h of the ppi chip
+								 ; to turn on the speaker.
 
 
-	pop dx cx bx ax
-	ret
+		pop dx cx bx ax
+		ret
 endp
 
 end @entry
