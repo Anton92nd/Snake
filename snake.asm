@@ -125,6 +125,7 @@ MapObjectType_SnakePartRight equ 0A02h
 MapObjectType_SnakePartDown equ 0A03h
 ;------------Enum object type------------
 Expires_Never equ 0
+Food3Expires dw 0fh
 ;-------------Map Description----------------
 MapObject struc
 	_Type dw MapObjectType_None
@@ -347,7 +348,7 @@ makeSnake proc
 		call setMapObj
 		mov ax, 150Bh
 		mov bx, MapObjectType_Food3
-		mov cx, Expires_Never
+		mov cx, [Food3Expires]
 		call setMapObj
 		
 		pop dx cx bx ax
@@ -711,9 +712,15 @@ decreaseExpirations proc
 		je @@next
 		dec cx
 		cmp cx, 0
-		jne @@justSet
+		jne @@set
+		cmp bx, MapObjectType_Food3
+		je @@placeNewFood3
 		mov bx, MapObjectType_None
-@@justSet:
+		jmp @@set
+@@placeNewFood3:
+		call SetNewFood3
+		mov bx, MapObjectType_None
+@@set:
 		call setMapObj
 @@next:
 		inc al
@@ -723,6 +730,15 @@ decreaseExpirations proc
 		jmp @@whileAhLessThanWidth
 @@endAh:
 		pop dx cx bx ax
+		ret
+endp
+
+SetNewFood3 proc
+		push bx cx
+		mov bx, MapObjectType_Food3
+		mov cx, [Food3Expires]
+		call generateMapObjWhereEmpty
+		pop cx bx
 		ret
 endp
 
