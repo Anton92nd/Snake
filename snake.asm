@@ -540,9 +540,10 @@ getNextAx proc ; ax = current coords, bx = snake part
 		ret
 endp
 
-SelfCollisionAllowed db 0
 
-onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
+SelfCollisionAllowed db 3
+
+onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		push ax bx cx dx
 		mov di, 0
 		cmp dh, 0Ah
@@ -561,8 +562,12 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 		je @@withWall3
 		jmp @@end
 @@withUrSelf:
-		cmp [SelfCollisionAllowed], 1
-		je @@end
+		mov dl, [SelfCollisionAllowed]
+		and dl, 03h
+		cmp dl, 03h
+		je @@removeTail
+		test [SelfCollisionAllowed], 01h
+		jnz @@end
 		mov [GameStatus], Game_Over
 		jmp @@end
 @@withFood1:
@@ -593,10 +598,9 @@ onCollideWith proc ; ax = who, dx = target type; di => isRecheckNeeded
 		jmp @@end
 @@withWall3:
 		jmp @@end
-@@turn:
-		mov ax, [HeadCoords]
-		call setMapObj
-		mov di, 1
+@@removeTail:
+		mov dx, cx
+		call decreaseExpirationsByDx
 		jmp @@end
 @@die:
 		mov [GameStatus], Game_Over
@@ -735,6 +739,42 @@ decreaseExpirations proc
 		jmp @@set
 @@placeNewFood3:
 		call SetNewFood3
+		mov bx, MapObjectType_None
+@@set:
+		call setMapObj
+@@next:
+		inc al
+		jmp @@whileAlLessThanHeight
+@@endAl:
+		inc ah
+		jmp @@whileAhLessThanWidth
+@@endAh:
+		pop dx cx bx ax
+		ret
+endp
+
+decreaseExpirationsByDx proc
+		push ax bx cx dx
+		mov ax, 0
+@@whileAhLessThanWidth:
+		cmp ah, MapWidth
+		jae @@endAh
+		mov al, 0
+@@whileAlLessThanHeight:
+		cmp al, MapHeight
+		jae @@endAl
+	
+		call getMapObj
+		cmp bx, MapObjectType_Food3
+		je @@next
+		cmp cx, Expires_Never
+		je @@next
+		cmp cx, dx
+		jle @@toZero
+		sub cx, dx
+		jmp @@set
+@@toZero:
+		mov cx, Expires_Never
 		mov bx, MapObjectType_None
 @@set:
 		call setMapObj
