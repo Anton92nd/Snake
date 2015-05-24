@@ -22,15 +22,35 @@ locals @@
 		add cx, [word ptr es:046ch]
 @@wait:
 		cmp [GameStatus], Game_Over
-		je @@endLoop
+		je @@end
 		hlt
 		cmp cx, [word ptr es:046ch]
 		jne @@wait
+		cmp [GameStatus], Game_Running
+		jne @@paused
 		call makeTurn
 		call drawMap
 		jmp @@loop
-@@endLoop:
-		nop
+@@paused:
+		cmp [GameStatus], Game_PausedOver
+		je @@pausedOver
+		cmp [GameStatus], Game_PausedHelp
+		je @@pausedHelp
+		call printPaused
+		jmp @@pauseLoop
+@@pausedOver:
+		call printGameover
+		jmp @@pauseLoop
+@@pausedHelp:
+		call printHelp
+@@pauseLoop:
+		mov dl, [GameStatus]
+@@whilePausedStay:
+		cmp [GameStatus], Game_Over
+		je @@end
+		cmp dl, [GameStatus]
+		je @@whilePausedStay
+		jmp @@loop
 @@end:
 		call restorePageAndMode
 		mov dx, [oldInt9Off]
@@ -46,7 +66,11 @@ newInt9 proc
 		cli
 		in al, 60h
 		cmp al, 01h
-		je @@setGameOver
+		je @@escape
+		cmp al, 03bh
+		je @@helpKey
+		cmp al, 01ch
+		je @@enterKey
 		cmp al, 48h
 		je @@ifUp
 		cmp al, 4dh
@@ -64,7 +88,25 @@ newInt9 proc
 		cmp al, 4ah
 		je @@ifMinus
 		jmp @@end
-@@setGameOver:
+@@escape:
+		cmp [GameStatus], Game_Running
+		je @@setPause
+		mov [GameStatus], Game_Over
+		jmp @@end
+@@setPause:
+		mov [GameStatus], Game_PausedPause
+		jmp @@end
+@@helpKey:
+		mov [GameStatus], Game_PausedHelp
+		jmp @@end
+@@enterKey:
+		cmp [GameStatus], Game_PausedOver
+		je @@setOver
+		cmp [GameStatus], Game_Running
+		je @@setPause
+		mov [GameStatus], Game_Running
+		jmp @@end
+@@setOver:
 		mov [GameStatus], Game_Over
 		jmp @@end
 @@ifUp:
@@ -118,6 +160,65 @@ newInt9 proc
 		iret
 endp	
 
+printHelp proc
+		push bx dx
+		mov dx, 0207h
+		lea bx, HelpTextLine1
+		call printLine
+		inc dh
+		lea bx, HelpTextline2
+		call printLine
+		inc dh
+		lea bx, HelpTextLine3
+		call printLine
+		inc dh
+		lea bx, HelpTextLine4
+		call printLine
+		pop dx bx
+		ret
+endp
+
+printPaused proc
+		push bx dx
+		mov dx, 0209h
+		lea bx, PauseTextLine1
+		call printLine
+		inc dh
+		lea bx, PauseTextline2
+		call printLine
+		inc dh
+		lea bx, PauseTextLine3
+		call printLine
+		pop dx bx
+		ret
+endp
+
+printGameover proc
+		push bx dx
+		mov dx, 020fh
+		lea bx, EndTextLine1
+		call printLine
+		mov dx, 0407h
+		lea bx, EndTextline5
+		call printLine
+		pop dx bx
+		ret
+endp
+
+PauseTextLine1 db 'PAUSED$'
+PauseTextLine2 db '[Press Enter to resume]$'
+PauseTextLine3 db '[Press Escape to exit]$'
+
+HelpTextLine1 db 'Use arrow keys to turn snake$'
+HelpTextLine2 db 'Press Enter to pause/unpause$'
+HelpTextLine3 db 'Use +/- to change speed$'
+HelpTextLine4 db '[Press Enter to resume]$'
+
+EndTextLine1 db 'GAME OVER$'
+EndTextLine2 db 'Food1: ____	Food2: ____$'
+EndTextLine3 db 'Turns: ____$' 
+EndTextLine4 db 'Length: ____ / ____$'
+EndTextLine5 db '[Press Enter/Escape to exit]$'
 		
 Dir_North equ 0h
 Dir_Easth equ 1h
@@ -163,10 +264,13 @@ Speed dw 1h
 HeadCoords dw ?
 HeadType dw ?
 
-
+;-------------Game status enum---------------
 Game_Running equ 0h
-Game_Paused equ 01h
-Game_Over equ 02h
+Game_PausedPause equ 10h
+Game_PausedHelp equ 11h
+Game_PausedOver equ 12h
+Game_Over equ 20h
+;-------------Game status enum---------------
 
 GameStatus db 0h
 
@@ -477,12 +581,12 @@ makeTurn proc
 		call getMapObj
 		cmp bh, 0Ah
 		je @@alive
-		mov [GameStatus], Game_Over
+		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@alive:
 		cmp cx, [MaxSnakeLength]
 		jb @@notWonYet 
-		mov [GameStatus], Game_Over
+		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@notWonYet:
 		call getNextAx
@@ -491,7 +595,7 @@ makeTurn proc
 		call onCollideWith
 		cmp di, 1
 		je @@collide
-		cmp [GameStatus], Game_Over
+		cmp [GameStatus], Game_PausedOver
 		je @@end
 		mov ax, [HeadCoords]
 		call getMapObj
@@ -568,7 +672,7 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		je @@removeTail
 		test [SelfCollisionAllowed], 01h
 		jnz @@end
-		mov [GameStatus], Game_Over
+		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@withFood1:
 		mov dx, 1
@@ -587,10 +691,10 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		call generateMapObjWhereEmpty
 		jmp @@end
 @@withFood3:
-		mov [GameStatus], Game_Over
+		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@withWall1:
-		mov [GameStatus], Game_Over
+		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@withWall2:
 		call reverseSnake
@@ -603,7 +707,7 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		call decreaseExpirationsByDx
 		jmp @@end
 @@die:
-		mov [GameStatus], Game_Over
+		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@end:
 		pop dx cx bx ax
@@ -834,6 +938,19 @@ changeSnakeDuration proc ; dx = duration change
 		ret
 endp
 
+printLine proc ; bx = word off, dh = y, dl = x
+	push ax bx cx dx
+	push bx
+	mov bx, 0
+	mov ah, 2
+	int 10h
+	pop dx
+	mov ah, 9
+	int 21h
+	pop dx cx bx ax
+	ret
+endp
+
 playSoundFromBx proc
 		push ax bx cx dx
 
@@ -850,7 +967,6 @@ playSoundFromBx proc
 		or      al, 00000011b    ; or al to this value, forcing first two bits high.
 		out     61h, al          ; copy it to port 61h of the ppi chip
 								 ; to turn on the speaker.
-
 
 		pop dx cx bx ax
 		ret
