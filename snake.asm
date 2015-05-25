@@ -12,9 +12,24 @@ locals @@
 		oldInt9Off dw ?
 		
 @start:
+		call parseCommandLineArgs
+		cmp al, 0FFh
+		je @@failRet
+		call checkKeysValues
+		cmp al, 0FFh
+		je @@failRet
+		mov al, [KeyValues]
+		test al, al
+		jz @@argsParsed
+		call showHelp
+@@failRet:
+		ret
+@@argsParsed:
+		call fillArgs
 		call initialize
 		call makeSnake
 		call drawMap
+		mov [GameStatus], Game_PausedPause
 @@loop:
 		mov ax, 0h
 		mov es, ax
@@ -158,7 +173,243 @@ newInt9 proc
 		out 20h, al ; to the 8259A PIC.
 		pop dx cx bx ax
 		iret
-endp	
+endp
+
+showHelp proc
+		mov ah, 09h
+		lea dx, HelpCmdText
+		int 21h
+		ret
+endp
+
+HelpCmdText db 'Usage: snake [optional keys]', 13, 10,'	/? - show help', 13, 10,'	/l <1..9> - starting snake length', 13, 10,'	/f <1..20> - number of food pieces', 13, 10,'	/s <0..2> - self-collision behaviour', 13, 10,'	  0 - death', 13, 10,'	  1 - override', 13, 10,'	  2 - cutting tail$'
+
+fillArgs proc
+		mov al, [KeyValues + 02h]
+		mov [SelfCollisionAllowed], al
+		mov al, [KeyValues + 01h]
+		mov [StartSnakeLength], al
+		mov al, [KeyValues + 03h]
+		mov [Food1Count], al
+		ret
+endp
+
+MaxSnakeStartLength equ 09h
+StartSnakeLength db ?
+Food1Count db 01h
+		
+checkKeysValues proc
+		xor ax, ax
+		mov al, [KeyValues + 01h]
+		cmp ax, MaxSnakeStartLength
+		jg @@endFail
+		xor al, al
+		cmp al, [KeyValues + 01h]
+		jne @@skipLength
+		mov al, 04h
+		mov [KeyValues + 01h], al
+@@skipLength:
+		mov al, [KeyValues + 02h]
+		cmp al, 02h
+		jg @@endFail
+		mov al, 02h
+		cmp [KeyValues + 02h], al
+		jne @@skipCollision
+		mov al, 03h
+		mov [KeyValues + 02h], al
+@@skipCollision:
+		xor al, al
+		cmp [KeyValues + 03h], al
+		jne @@skipFood
+		mov al, 01h
+		mov [KeyValues + 03h], al
+@@skipFood:
+		ret
+@@endFail:
+		mov al, 0FFh
+		ret
+endp
+	
+;----------DFA states enum------------
+WrongState db 00h
+InitialState db 01h
+SlashState db 02h
+KeyWithValState db 03h
+KeyOnlyState db 04h
+DigitState db 05h
+;----------DFA states enum------------
+StatesCount equ 06d
+KeysCount equ 04h
+KeyValues db KeysCount dup (0)
+LastKey db 05h
+Sygma equ 016d
+Alphabet db '/?lsf 0123456789'
+Terminal db StatesCount dup (0)
+
+
+traslateSymbol proc
+		push si cx
+		lea si, Alphabet
+		mov cx, Sygma
+@@whileAlNotEqualToCsSi:
+		cmp al, [si]
+		je @@found
+		inc si
+		loop @@whileAlNotEqualToCsSi
+		mov al, 0FFh
+		jmp @@end
+@@found:
+		sub si, offset Alphabet
+		mov ax, si
+@@end:
+		pop cx si
+		ret
+endp
+
+DFA db Sygma * StatesCount dup (0)
+	
+initDFA proc
+		xor ax, ax
+		cld
+		lea si, DFA
+		add si, Sygma
+		;InitialState
+		
+		mov al, [SlashState]		;by slash
+		mov [si], al
+		
+		mov al, [InitialState]		;by whitespace
+		mov [si + 05h], al
+		
+		add si, Sygma
+		;SlashState
+		mov al, [KeyOnlyState]
+		mov [si + 01h], al
+		
+		mov di, si					;by keys with values
+		add di, 02h
+		mov cx, KeysCount - 01h
+		mov al, [KeyWithValState]
+		rep stosb
+		
+		add si, Sygma
+		;KeyWithValState
+		mov al, [KeyWithValState]	;by whitespace
+		mov [si + KeysCount + 01h], al
+		
+		mov di, si					;by digits
+		add di, KeysCount + 02h
+		mov al, [DigitState]
+		mov cx, 0ah
+		rep stosb 
+		
+		add si, Sygma
+		;KeyOnlyState
+		mov al, [InitialState]
+		mov [si + KeysCount + 01h], al
+		
+		add si, Sygma
+		;DigitState
+		mov al, [InitialState]		;by whitespace
+		mov [si + KeysCount + 01h], al
+		
+		mov di, si					;by digits
+		add di, KeysCount + 02h
+		mov al, [DigitState]
+		mov cx, 0ah
+		rep stosb 
+		;
+		lea si, Terminal
+		mov al, 01h
+		mov [si + 01h], al				;q1, q4, q5
+		mov [si + 04h], al
+		mov [si + 05h], al
+		ret
+endp
+
+parseArgs proc
+		lea di, DFA
+		add di, Sygma
+		xor dx, dx
+		mov dl, 01h
+		mov si, 80h
+		xor cx, cx
+		mov cl, [si]
+		test cl, cl
+		jz @@end
+		inc si
+@@loop:
+		lodsb
+		call traslateSymbol
+		cmp al, 0FFh
+		je @@endFail
+		call processSymbol ;
+		call getDFAstate ;to dx
+		mov al, dl
+		mov ah, Sygma
+		mul ah
+		lea di, DFA
+		add di, ax
+		loop @@loop
+@@end:
+		lea bx, Terminal
+		add bx, dx
+		mov al, [bx]
+		test al, al
+		jz @@endFail
+		ret
+@@endFail:
+		mov al, 0FFh
+		ret
+endp
+
+processSymbol proc ;al = symbol dx = state ;al <- Sygma if wrong
+		push ax bx cx
+		test al, al				;slash
+		jz @@end
+		cmp al, KeysCount + 01h	;whitespace
+		je @@end
+		cmp al, KeysCount
+		jg @@digit
+		cmp al, 01h
+		je @@help
+		dec al
+		mov [LastKey], al
+		jmp @@end
+@@digit:
+		mov cx, ax
+		sub cx, KeysCount + 02h
+		xor bx, bx
+		mov bl, [LastKey]
+		add bx, offset KeyValues
+		mov al, [bx]
+		mov ah, 0Ah
+		mul ah
+		add ax, cx
+		mov [bx], ax
+		jmp @@end
+@@help:
+		mov [KeyValues], al
+@@end:
+		pop cx bx ax
+		ret
+endp
+
+getDFAstate proc
+		push bx
+		xor dx, dx
+		mov bx, ax
+		add bx, di
+		mov dl, [bx]
+		pop bx
+		ret
+endp
+	
+parseCommandLineArgs proc
+		call initDFA
+		call parseArgs
+		ret
+endp
 
 printHelp proc
 		push bx dx
@@ -173,6 +424,9 @@ printHelp proc
 		call printLine
 		inc dh
 		lea bx, HelpTextLine4
+		call printLine
+		inc dh
+		lea bx, HelpTextLine5
 		call printLine
 		pop dx bx
 		ret
@@ -211,8 +465,9 @@ PauseTextLine3 db '[Press Escape to exit]$'
 
 HelpTextLine1 db 'Use arrow keys to turn snake$'
 HelpTextLine2 db 'Press Enter to pause/unpause$'
-HelpTextLine3 db 'Use +/- to change speed$'
-HelpTextLine4 db '[Press Enter to resume]$'
+HelpTextLine3 db 'Use +/- to change speed $'
+HelpTextLine4 db 'Try "/?" key to see keys$'
+HelpTextLine5 db '[Press Enter to resume]$'
 
 EndTextLine1 db 'GAME OVER$'
 EndTextLine2 db 'Food1: ____	Food2: ____$'
@@ -445,15 +700,15 @@ makeSnake proc
 		inc ah
 		jmp @@whileAhLessThanWidth
 @@endAh:
-		mov [HeadCoords], 0907h
+		mov ax, 0a07h
+		mov [HeadCoords], ax
 		mov [HeadType], MapObjectType_SnakePartRight
-		mov cx, 04h
+		mov cl, [StartSnakeLength]
+		xor ch, ch
 @@loop:
-		mov ah, cl
-		add ah, 5
-		mov al, 7
 		mov bx, MapObjectType_SnakePartRight
 		call setMapObj
+		dec ah
 		dec cx
 		jcxz @@end
 		jmp @@loop
@@ -470,7 +725,29 @@ makeSnake proc
 		mov bx, MapObjectType_Food3
 		mov cx, [Food3Expires]
 		call setMapObj
+		call setRemainingFood
 		
+		pop dx cx bx ax
+		ret
+endp
+
+setRemainingFood proc
+		push ax bx cx dx
+		xor cx, cx
+		mov cl, [Food1Count]
+		dec cx
+		test cx, cx
+		jz @@end
+@@loop:
+		push cx
+		xor cx, cx
+		mov bx, MapObjectType_Food1
+		call generateMapObjWhereEmpty
+		mov bx, MapObjectType_Food2
+		call generateMapObjWhereEmpty
+		pop cx
+		loop @@loop
+@@end:
 		pop dx cx bx ax
 		ret
 endp
@@ -809,7 +1086,7 @@ endp
 
 readTimerCount proc
 		;pushf
-		cli
+		;cli
 		mov al, 00000000b    ; al = channel in bits 6 and 7, remaining bits clear
 		out 43h, al        ; Send the latch command
 		in al, 40h         ; al = low byte of count
