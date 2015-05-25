@@ -10,13 +10,14 @@ locals @@
 		call parseCommandLineArgs
 		cmp al, 0FFh
 		je @@failRet
-		mov dl, '1'
+		mov dl, [KeyValues + 1]
+		add dl, '0'
 		mov ah, 02h
 		int 21h
 		ret
 @@failRet:
 		mov ah, 02h
-		mov dl, '0'
+		mov dl, '!'
 		int 21h
 		ret
 	
@@ -121,7 +122,7 @@ parseArgs proc
 		lea di, DFA
 		add di, Sygma
 		xor dx, dx
-		mov dx, 01h
+		mov dl, 01h
 		mov si, 80h
 		xor cx, cx
 		mov cl, [si]
@@ -133,11 +134,9 @@ parseArgs proc
 		call traslateSymbol
 		cmp al, 0FFh
 		je @@endFail
-		call processSymbol
-		cmp al, Sygma
-		je @@endFail
-		call getDFAstate
-		mov dx, ax
+		call processSymbol ;
+		call getDFAstate ;to dx
+		mov al, dl
 		mov ah, Sygma
 		mul ah
 		lea di, DFA
@@ -155,28 +154,44 @@ parseArgs proc
 		ret
 endp
 
-processSymbol proc ;al <- Sygma if wrong
-		push ax
-		
-@@end:
-		pop ax
-		ret
-@@initial:
+processSymbol proc ;al = symbol dx = state ;al <- Sygma if wrong
+		push ax bx cx
+		test al, al				;slash
+		jz @@end
+		cmp al, KeysCount + 01h	;whitespace
+		je @@end
+		cmp al, KeysCount
+		jg @@digit
+		cmp al, 01h
+		je @@help
+		dec al
+		mov [LastKey], al
 		jmp @@end
 @@digit:
-		
+		mov cx, ax
+		sub cx, KeysCount + 02h
+		xor bx, bx
+		mov bl, [LastKey]
+		add bx, offset KeyValues
+		mov al, [bx]
+		mov ah, 0Ah
+		mul ah
+		add ax, cx
+		mov [bx], ax
 		jmp @@end
-@@endFail:
-		pop ax
-		mov al, Sygma
+@@help:
+		mov [KeyValues], al
+@@end:
+		pop cx bx ax
 		ret
 endp
 
 getDFAstate proc
 		push bx
+		xor dx, dx
 		mov bx, ax
 		add bx, di
-		mov al, [bx]
+		mov dl, [bx]
 		pop bx
 		ret
 endp
