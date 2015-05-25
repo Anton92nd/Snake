@@ -10,9 +10,22 @@ locals @@
 		call parseCommandLineArgs
 		cmp al, 0FFh
 		je @@failRet
-		mov dl, [KeyValues + 1]
-		add dl, '0'
+		call checkKeysValues
+		cmp al, 0FFh
+		je @@failRet
 		mov ah, 02h
+		mov dl, [KeyValues + 01h]
+		add dl, '0'
+		int 21h
+		mov dl, ' '
+		int 21h
+		mov dl, [KeyValues + 02h]
+		add dl, '0'
+		int 21h
+		mov dl, ' '
+		int 21h
+		mov dl, [KeyValues + 03h]
+		add dl, '0'
 		int 21h
 		ret
 @@failRet:
@@ -20,6 +33,40 @@ locals @@
 		mov dl, '!'
 		int 21h
 		ret
+
+MaxSnakeStartLength equ 09h
+		
+checkKeysValues proc
+		xor ax, ax
+		mov al, [KeyValues + 01h]
+		cmp ax, MaxSnakeStartLength
+		jg @@endFail
+		xor al, al
+		cmp al, [KeyValues + 01h]
+		jne @@skipLength
+		mov al, 03h
+		mov [KeyValues + 01h], al
+@@skipLength:
+		mov al, [KeyValues + 02h]
+		cmp al, 02h
+		jg @@endFail
+		mov al, 02h
+		cmp [KeyValues + 02h], al
+		jne @@skipCollision
+		mov al, 03h
+		mov [KeyValues + 02h], al
+@@skipCollision:
+		xor al, al
+		cmp [KeyValues + 03h], al
+		jne @@skipFood
+		mov al, 01h
+		mov [KeyValues + 03h], al
+@@skipFood:
+		ret
+@@endFail:
+		mov al, 0FFh
+		ret
+endp
 	
 ;----------DFA states enum------------
 WrongState db 00h
