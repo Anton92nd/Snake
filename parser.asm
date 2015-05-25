@@ -8,21 +8,32 @@ locals @@
 		jmp @start
 @start:
 		call parseCommandLineArgs
+		cmp al, 0FFh
+		je @@failRet
+		mov dl, '1'
+		mov ah, 02h
+		int 21h
+		ret
+@@failRet:
+		mov ah, 02h
+		mov dl, '0'
+		int 21h
 		ret
 	
 ;----------DFA states enum------------
 WrongState db 00h
 InitialState db 01h
 SlashState db 02h
-SymbolState db 03h
-DigitState db 04h
+KeyWithValState db 03h
+KeyOnlyState db 04h
+DigitState db 05h
 ;----------DFA states enum------------
-StatesCount equ 05d
+StatesCount equ 06d
 KeysCount equ 04h
 KeyValues db KeysCount dup (0)
 LastKey db 05h
 Sygma equ 016d
-Alphabet db '/hlsf 0123456789'
+Alphabet db '/?lsf 0123456789'
 Terminal db StatesCount dup (0)
 
 
@@ -60,22 +71,30 @@ initDFA proc
 		mov al, [InitialState]		;by whitespace
 		mov [si + 05h], al
 		
+		add si, Sygma
+		;SlashState
+		mov al, [KeyOnlyState]
+		mov [si + 01h], al
+		
+		mov di, si					;by keys with values
+		add di, 02h
+		mov cx, KeysCount - 01h
+		mov al, [KeyWithValState]
+		rep stosb
+		
+		add si, Sygma
+		;KeyWithValState
+		mov al, [KeyWithValState]	;by whitespace
+		mov [si + KeysCount + 01h], al
+		
 		mov di, si					;by digits
 		add di, KeysCount + 02h
 		mov al, [DigitState]
 		mov cx, 0ah
-		rep stosb
+		rep stosb 
 		
 		add si, Sygma
-		;SlashState
-		mov di, si					;by keys
-		inc di
-		mov cx, KeysCount
-		mov al, [SymbolState]
-		rep stosb
-		
-		add si, Sygma
-		;SymbolState
+		;KeyOnlyState
 		mov al, [InitialState]
 		mov [si + KeysCount + 01h], al
 		
@@ -92,9 +111,9 @@ initDFA proc
 		;
 		lea si, Terminal
 		mov al, 01h
-		mov [si], al				;q0, q2, q3
-		mov [si + 02h], al
-		mov [si + 03h], al
+		mov [si + 01h], al				;q1, q4, q5
+		mov [si + 04h], al
+		mov [si + 05h], al
 		ret
 endp
 
@@ -102,9 +121,12 @@ parseArgs proc
 		lea di, DFA
 		add di, Sygma
 		xor dx, dx
+		mov dx, 01h
 		mov si, 80h
 		xor cx, cx
 		mov cl, [si]
+		test cl, cl
+		jz @@end
 		inc si
 @@loop:
 		lodsb
@@ -135,32 +157,14 @@ endp
 
 processSymbol proc ;al <- Sygma if wrong
 		push ax
-		test al, al
-		jz @@end
-		cmp al, KeysCount + 01h
-		je @@end
-		jg @@digit
-		dec al
-		mov [LastKey], al
+		
 @@end:
 		pop ax
 		ret
+@@initial:
+		jmp @@end
 @@digit:
-		cmp [LastKey], KeysCount
-		jge @@endFail
-		push dx
-		xor dx, dx
-		mov dl, al
-		sub dx, KeysCount + 02h
-		xor bx, bx
-		mov bl, [LastKey]
-		add bx, offset KeyValues
-		mov al, [bx]
-		mov ah, 0ah
-		mul ah
-		add ax, dx
-		pop dx
-		mov [bx], al
+		
 		jmp @@end
 @@endFail:
 		pop ax
