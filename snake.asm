@@ -45,6 +45,7 @@ locals @@
 		cmp [GameStatus], Game_Running
 		jne @@paused
 		call makeTurn
+		inc [GameTurns]
 		call drawMap
 		jmp @@loop
 @@paused:
@@ -452,15 +453,59 @@ printPaused proc
 		ret
 endp
 
+
+fillNumber proc 	;bx = offset to end of insert, cx = number
+		push ax bx cx dx di
+		xor dx, dx
+		mov ax, cx
+		mov cx, 03h
+		mov di, 0Ah
+@@loop:
+		div di
+		add dx, '0'
+		mov [bx], dl
+		dec bx
+		xor dx, dx
+		loop @@loop
+		pop di dx cx bx ax
+		ret
+endp
+
 printGameover proc
-		push bx dx
+		push ax bx cx dx
+		xor cx, cx
+		mov ax, [HeadCoords]
+		call getMapObj
+		mov [SnakeLengthAtFinish], cl
 		mov dx, 020fh
 		lea bx, EndTextLine1
 		call printLine
+		xor cx, cx
+		mov bx, offset EndTextLine2 + 009d
+		mov cl, [Food1Eaten]
+		call fillNumber
+		mov bx, offset EndTextLine2 + 020d
+		mov cl, [Food2Eaten]
+		call fillNumber
 		mov dx, 0407h
+		lea bx, EndTextLine2
+		call printLine
+		inc dh
+		mov bx, offset EndTextLine3 + 009d
+		mov cl, [GameTurns]
+		call fillNumber
+		lea bx, EndTextLine3
+		call printLine
+		inc dh
+		mov bx, offset EndTextLine4 + 010d
+		mov cl, [SnakeLengthAtFinish]
+		call fillNumber
+		lea bx, EndTextLine4
+		call printLine
+		inc dh
 		lea bx, EndTextline5
 		call printLine
-		pop dx bx
+		pop dx cx bx ax
 		ret
 endp
 
@@ -475,9 +520,9 @@ HelpTextLine4 db 'Try "/?" key to see keys$'
 HelpTextLine5 db '[Press Enter to resume]$'
 
 EndTextLine1 db 'GAME OVER$'
-EndTextLine2 db 'Food1: ____	Food2: ____$'
-EndTextLine3 db 'Turns: ____$' 
-EndTextLine4 db 'Length: ____ / ____$'
+EndTextLine2 db 'Food1: ___	Food2: ___$'
+EndTextLine3 db 'Turns: ___$' 
+EndTextLine4 db 'Length: ___$'
 EndTextLine5 db '[Press Enter/Escape to exit]$'
 		
 Dir_North equ 0h
@@ -532,6 +577,14 @@ Game_PausedHelp equ 11h
 Game_PausedOver equ 12h
 Game_Over equ 20h
 ;-------------Game status enum---------------
+
+;-------------Game statistics----------------
+Food1Eaten db 0h
+Food2Eaten db 0h
+GameTurns db 0h
+SnakeLengthAtFinish db 0h
+;-------------Game statistics----------------
+
 
 GameStatus db 0h
 
@@ -975,6 +1028,7 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@withFood1:
+		inc [Food1Eaten]
 		mov bx, Note_C2
 		call playSoundFromBx
 		mov dx, 1
@@ -984,6 +1038,7 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		call generateMapObjWhereEmpty
 		jmp @@end
 @@withFood2:
+		inc [Food2Eaten]
 		mov bx, Note_D2
 		call playSoundFromBx
 		mov dx, -2
