@@ -56,6 +56,7 @@ locals @@
 		jmp @@pauseLoop
 @@pausedOver:
 		call printGameover
+		call playTune
 		jmp @@pauseLoop
 @@pausedHelp:
 		call printHelp
@@ -1004,7 +1005,7 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		mov di, 1
 		jmp @@end
 @@withWall3:
-		mov bx, Note_F
+		mov bx, Note_H
 		call playSoundFromBx
 		jmp @@end
 @@withWall4:
@@ -1320,6 +1321,97 @@ offSound proc
 	ret
 endp
 
+playNote proc ; bx = freq or 0 if silence, cx = length
+	push ax bx cx dx es
+	mov ax, 0
+	mov es, ax
+	add cx, [word ptr es:046Ch]
+	cmp bx, 0
+	je delay
+	call playSoundFromBx
+delay:
+	cmp [word ptr es:046Ch], cx
+	jne delay
+	
+	call offSound
+	
+	pop es dx cx bx ax
+	ret
+endp
+
+TunePlayed db 0
+playTune proc
+	push ax bx cx dx
+	cmp [TunePlayed], 1
+	je @@end
+	mov bx, Note_C
+	mov cx, 06h
+	call playNote
+	mov bx, 0h
+	mov cx, 04h
+	call playNote
+	mov bx, Note_C
+	mov cx, 06h
+	call playNote
+	mov bx, 0h
+	mov cx, 04h
+	call playNote
+	mov bx, Note_C
+	mov cx, 02h
+	call playNote
+	mov bx, 0
+	mov cx, 02h
+	call playNote
+	mov bx, Note_C
+	mov cx, 04h
+	call playNote
+	mov bx, 0h
+	mov cx, 08h
+	call playNote
+	mov bx, Note_E
+	mov cx, 04h
+	call playNote
+	mov bx, 0h
+	mov cx, 04h
+	call playNote
+	mov bx, Note_D
+	mov cx, 02h
+	call playNote
+	mov bx, 0h
+	mov cx, 02h
+	call playNote
+	mov bx, Note_D
+	mov cx, 04h
+	call playNote
+	mov bx, 0h
+	mov cx, 04h
+	call playNote
+	mov bx, Note_C
+	mov cx, 02h
+	call playNote
+	mov bx, 0h
+	mov cx, 02h
+	call playNote
+	mov bx, Note_C
+	mov cx, 04h
+	call playNote
+	mov bx, 0h
+	mov cx, 04h
+	call playNote
+	mov bx, Note_C
+	mov cx, 02h
+	call playNote
+	mov bx, 0h
+	mov cx, 02h
+	call playNote
+	mov bx, Note_C
+	mov cx, 08h
+	call playNote
+@@end:
+	pop dx cx bx ax
+	ret
+endp
+
 Note_C equ 9121d
 Note_Cs equ 8609d
 Note_D equ 8126d
@@ -1340,5 +1432,8 @@ Note_E2 equ 7239d / 2
 Note_F2 equ 6833d / 2
 Note_Fs2 equ 6449d / 2
 Note_G2 equ 6087d / 2
+Note_D3 equ Note_D2 / 2
+Note_F6 equ Note_F2 / 16
+Note_E5 equ Note_E2 / 8
 
 end @entry
