@@ -491,6 +491,7 @@ MapObjectType_Food3 equ 0103h
 MapObjectType_Wall1 equ 0201h
 MapObjectType_Wall2 equ 0202h
 MapObjectType_Wall3 equ 0203h
+MapObjectType_Wall4 equ 0204h
 MapObjectType_SnakePartLeft equ 0A00h
 MapObjectType_SnakePartUp equ 0A01h
 MapObjectType_SnakePartRight equ 0A02h
@@ -598,8 +599,12 @@ endp
 	Wall1Color dw 240d
 	Wall2Color dw 11d
 	Wall3Color dw 80d
+	Wall4Color dw 32d
 	NoneColor  dw 0d
 ;----------Colors----------
+SnakeColorsCount equ 05h
+SnakeColors dw 15d, 11d, 13d, 45d, 92d
+CurrentSnakeColor db 0
 
 drawMapObj proc ; ah = x, al = y, bx = type, cx = expires
 		push ax bx cx dx
@@ -640,8 +645,14 @@ drawMapObj proc ; ah = x, al = y, bx = type, cx = expires
 		jmp @@end
 @@checkIfWall3:
 		cmp bx, MapObjectType_Wall3
-		jne @@ifNone
+		jne @@checkIfWall4
 		mov dx, [Wall3Color]
+		call drawBox
+		jmp @@end
+@@checkIfWall4:
+		cmp bx, MapObjectType_Wall4
+		jne @@ifNone
+		mov dx, [Wall4Color]
 		call drawBox
 		jmp @@end
 @@ifNone:
@@ -677,6 +688,8 @@ makeSnake proc
 		je @@edge
 		jmp @@notEdge
 @@edge:
+		cmp al, 0h
+		je @@isWall4
 		cmp ah, 0h
 		je @@isWall2
 		cmp ah, MaxX
@@ -688,6 +701,9 @@ makeSnake proc
 		jmp @@done
 @@isWall3:
 		mov bx, MapObjectType_Wall3
+		jmp @@done
+@@isWall4:
+		mov bx, MapObjectType_Wall4
 		jmp @@done
 @@notEdge:
 		mov bx, MapObjectType_None
@@ -941,6 +957,8 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		je @@withWall2
 		cmp dx, MapObjectType_Wall3
 		je @@withWall3
+		cmp dx, MapObjectType_Wall4
+		je @@withWall4
 		jmp @@end
 @@withUrSelf:
 		mov dl, [SelfCollisionAllowed]
@@ -979,6 +997,18 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		jmp @@end
 @@withWall3:
 		jmp @@end
+@@withWall4:
+		call rollSnakeColor
+		mov ax, [HeadCoords]
+		call getMapObj
+		mov dx, cx
+		cmp dx, 01h
+		je @@die
+		shr dx, 1
+		call decreaseExpirationsByDx
+		call reverseSnake
+		mov di, 1
+		jmp @@end
 @@removeTail:
 		mov dx, cx
 		call decreaseExpirationsByDx
@@ -988,6 +1018,24 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		jmp @@end
 @@end:
 		pop dx cx bx ax
+		ret
+endp
+
+rollSnakeColor proc
+		push ax bx
+		xor bh, bh
+		mov bl, [CurrentSnakeColor]
+		inc bl
+		cmp bx, SnakeColorsCount
+		jne @@skip
+		xor bl, bl
+@@skip:
+		mov [CurrentSnakeColor], bl
+		add bx, bx
+		add bx, offset SnakeColors
+		mov ax, [bx]
+		mov [SnakeColor], ax
+		pop bx ax
 		ret
 endp
 
