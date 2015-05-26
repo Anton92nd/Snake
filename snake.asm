@@ -115,6 +115,8 @@ newInt9 proc
 		mov [GameStatus], Game_PausedPause
 		jmp @@end
 @@helpKey:
+		cmp [GameStatus], Game_PausedOver
+		je @@end
 		mov [GameStatus], Game_PausedHelp
 		jmp @@end
 @@enterKey:
