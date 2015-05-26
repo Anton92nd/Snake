@@ -392,7 +392,7 @@ processSymbol proc ;al = symbol dx = state ;al <- Sygma if wrong
 		mov ah, 0Ah
 		mul ah
 		add ax, cx
-		mov [bx], ax
+		mov [bx], al
 		jmp @@end
 @@help:
 		mov [KeyValues], al
