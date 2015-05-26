@@ -127,7 +127,7 @@ newInt9 proc
 @@ifUp:
 		mov bx, [HeadType]
 		cmp bx, MapObjectType_SnakePartDown
-		je @@end
+		je @@reverse
 		mov ax, [HeadCoords]
 		call getMapObj
 		mov bx, MapObjectType_SnakePartUp
@@ -136,7 +136,7 @@ newInt9 proc
 @@ifDown:
 		mov bx, [HeadType]
 		cmp bx, MapObjectType_SnakePartUp
-		je @@end
+		je @@reverse
 		mov ax, [HeadCoords]
 		call getMapObj
 		mov bx, MapObjectType_SnakePartDown
@@ -145,7 +145,7 @@ newInt9 proc
 @@ifLeft:
 		mov bx, [HeadType]
 		cmp bx, MapObjectType_SnakePartRight
-		je @@end
+		je @@reverse
 		mov ax, [HeadCoords]
 		call getMapObj
 		mov bx, MapObjectType_SnakePartLeft
@@ -154,11 +154,14 @@ newInt9 proc
 @@ifRight:
 		mov bx, [HeadType]
 		cmp bx, MapObjectType_SnakePartLeft
-		je @@end
+		je @@reverse
 		mov ax, [HeadCoords]
 		call getMapObj
 		mov bx, MapObjectType_SnakePartRight
 		call setMapObj
+		jmp @@end
+@@reverse:
+		call reverseSnake
 		jmp @@end
 @@ifMinus:
 		inc [Speed]
