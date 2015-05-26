@@ -36,6 +36,7 @@ locals @@
 		mov cx, [Speed]
 		add cx, [word ptr es:046ch]
 @@wait:
+		call offSound
 		cmp [GameStatus], Game_Over
 		je @@end
 		hlt
@@ -973,6 +974,8 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@withFood1:
+		mov bx, Note_C2
+		call playSoundFromBx
 		mov dx, 1
 		call changeSnakeDuration
 		mov bx, MapObjectType_Food1
@@ -980,8 +983,8 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		call generateMapObjWhereEmpty
 		jmp @@end
 @@withFood2:
-		;mov bx, Note_D2
-		;call playSoundFromBx
+		mov bx, Note_D2
+		call playSoundFromBx
 		mov dx, -2
 		call changeSnakeDuration
 		mov bx, MapObjectType_Food2
@@ -995,12 +998,18 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		mov [GameStatus], Game_PausedOver
 		jmp @@end
 @@withWall2:
+		mov bx, Note_E
+		call playSoundFromBx
 		call reverseSnake
 		mov di, 1
 		jmp @@end
 @@withWall3:
+		mov bx, Note_F
+		call playSoundFromBx
 		jmp @@end
 @@withWall4:
+		mov bx, Note_H
+		call playSoundFromBx
 		call rollSnakeColor
 		mov ax, [HeadCoords]
 		call getMapObj
@@ -1013,6 +1022,8 @@ onCollideWith proc ; ax = with who, dx = target type; di => isRecheckNeeded
 		mov di, 1
 		jmp @@end
 @@removeTail:
+		mov bx, Note_Fs
+		call playSoundFromBx
 		mov dx, cx
 		call decreaseExpirationsByDx
 		jmp @@end
@@ -1299,5 +1310,35 @@ playSoundFromBx proc
 		pop dx cx bx ax
 		ret
 endp
+
+offSound proc
+	push ax
+	in      al, 61h
+	and     al, 11111100b
+	out     61h, al
+	pop ax
+	ret
+endp
+
+Note_C equ 9121d
+Note_Cs equ 8609d
+Note_D equ 8126d
+Note_Ds equ 7670d
+Note_E equ 7239d
+Note_F equ 6833d
+Note_Fs equ 6449d
+Note_G equ 6087d
+Note_Gs equ 5746d
+Note_A equ 5424d
+Note_B equ 5120d
+Note_H equ 4832d
+Note_C2 equ 4560d
+Note_Cs2 equ 8609d / 2
+Note_D2 equ 8126d / 2
+Note_Ds2 equ 7670d / 2
+Note_E2 equ 7239d / 2
+Note_F2 equ 6833d / 2
+Note_Fs2 equ 6449d / 2
+Note_G2 equ 6087d / 2
 
 end @entry
